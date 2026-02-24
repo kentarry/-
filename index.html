@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手機盤點系統 V3.8 - 新增搜尋功能</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; padding-bottom: 140px; }
+        .tab-active { color: #2563eb; border-bottom: 3px solid #2563eb; font-weight: bold; }
+        #loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.95); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; display: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        /* 設定區塊樣式 */
+        .settings-box { background: #374151; color: white; font-size: 12px; padding: 8px; }
+        .settings-content { display: none; margin-top: 8px; }
+        .settings-box.open .settings-content { display: block; }
+        canvas { touch-action: none; cursor: crosshair; }
+        /* 輸入框樣式微調 */
+        .detail-input { font-size: 12px; padding: 6px; border: 1px solid #d1d5db; border-radius: 6px; width: 100%; }
+        .detail-input:focus { border-color: #3b82f6; outline: none; ring: 2px; }
+    </style>
+</head>
+<body>
+
+    <!-- 系統設定區塊 -->
+    <div id="settings-area" class="settings-box">
+        <div class="flex justify-between items-center cursor-pointer" onclick="toggleSettings()">
+            <span><i class="fas fa-cog mr-1"></i> 系統連線設定 (若連線失敗請點此檢查)</span>
+            <i class="fas fa-chevron-down transform transition-transform" id="settings-arrow"></i>
+        </div>
+        <div class="settings-content">
+            <label class="block text-gray-400 mb-1">Google Apps Script URL (後端網址):</label>
+            <input type="text" id="api-url-input" class="w-full p-2 text-black rounded mb-2 text-xs font-mono" 
+                   placeholder="https://script.google.com/..." 
+                   onchange="saveApiUrl()">
+            <div class="flex gap-2">
+                <button onclick="saveApiUrl(); showMessage('設定已儲存', '網址已更新，系統將重新整理。', () => location.reload());" class="bg-blue-600 px-3 py-1 rounded hover:bg-blue-500">儲存並重整</button>
+                <button onclick="resetApiUrl()" class="bg-red-600 px-3 py-1 rounded hover:bg-red-500">恢復預設值</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading 遮罩 -->
+    <div id="loading-overlay">
+        <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-600 mb-4"></div>
+        <p class="text-gray-600 font-bold" id="loading-text">處理中...</p>
+    </div>
+
+    <!-- 通用訊息/確認視窗 -->
+    <div id="system-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[200]">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
+            <div id="modal-header" class="bg-gray-800 p-4 text-white font-bold flex items-center">
+                <i id="modal-icon" class="fas fa-info-circle mr-2"></i>
+                <span id="modal-title">系統訊息</span>
+            </div>
+            <div class="p-6">
+                <p id="modal-message" class="text-gray-700 text-sm mb-6 leading-relaxed whitespace-pre-wrap">訊息內容...</p>
+                <div class="flex gap-3" id="modal-actions"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 簽名板 Modal -->
+    <div id="signature-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[150]">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
+            <div class="bg-blue-600 p-3 text-white flex justify-between items-center">
+                <h3 class="font-bold"><i class="fas fa-pen-nib mr-2"></i>借用人簽名</h3>
+                <button onclick="closeSignatureModal(false)"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-4 flex-1 bg-gray-100 flex justify-center">
+                <canvas id="sig-canvas" class="bg-white border-2 border-dashed border-gray-400 rounded shadow-inner" width="300" height="150"></canvas>
+            </div>
+            <div class="p-4 bg-white border-t flex gap-3">
+                <button onclick="clearSignature()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"><i class="fas fa-eraser mr-1"></i>清除</button>
+                <button onclick="confirmSignature()" class="flex-1 px-4 py-2 bg-blue-600 text-white font-bold rounded-lg shadow hover:bg-blue-700">確認簽名</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 暫存進度 Modal -->
+    <div id="temp-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div class="bg-amber-500 p-4 text-white flex justify-between items-center">
+                <h3 class="font-bold text-lg"><i class="fas fa-save mr-2"></i>暫存進度確認</h3>
+                <button onclick="closeModal('temp-modal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6">
+                <label class="block text-sm font-bold text-gray-700 mb-2">登記人員姓名</label>
+                <input type="text" id="registrar-name" class="w-full p-3 border rounded-xl mb-4 outline-none focus:ring-2 focus:ring-amber-500" placeholder="請輸入姓名">
+                <p class="text-[10px] text-gray-400 mb-2">本次變更預覽：</p>
+                <div id="change-preview" class="text-xs bg-gray-50 p-3 rounded-lg max-h-40 overflow-y-auto mb-6 border font-mono"></div>
+                <div class="flex gap-3">
+                    <button onclick="closeModal('temp-modal')" class="flex-1 py-3 border rounded-xl hover:bg-gray-100 transition-colors">取消</button>
+                    <button onclick="confirmSave()" id="save-btn" class="flex-1 py-3 bg-amber-500 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all">確認儲存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <header class="bg-white shadow-sm sticky top-0 z-50 p-4">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <h1 class="font-bold text-xl text-gray-800 flex items-center"><i class="fas fa-mobile-alt mr-2 text-blue-600"></i>手機盤點 V3.8</h1>
+            <button onclick="fetchData()" class="text-blue-600 text-sm font-bold hover:bg-blue-50 px-2 py-1 rounded transition-all"><i class="fas fa-sync-alt"></i> 同步最新</button>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-4">
+        <!-- 頂部資訊卡與人員選擇 -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border mb-6">
+            <div class="flex flex-col md:flex-row md:items-end gap-6 mb-4">
+                <div>
+                    <p class="text-xs text-gray-400 font-bold uppercase tracking-widest">手機總數</p>
+                    <p class="text-4xl font-black text-blue-600" id="total-count">0</p>
+                </div>
+                <div class="flex-1">
+                    <p class="text-xs text-red-500 font-bold mb-2 flex items-center"><i class="fas fa-exclamation-triangle mr-1"></i> 待盤點 (點擊跳轉)：</p>
+                    <div id="missing-tags" class="flex flex-wrap gap-2"></div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <select id="main-user" class="w-full p-3 bg-gray-50 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">-- 選取正式上傳的主責盤點人員 --</option>
+                    <option value="昕慈">昕慈</option><option value="零三">零三</option><option value="庭瑊">庭瑊</option><option value="HAMA">HAMA</option>
+                    <option value="阿布">阿布</option><option value="嘉佑">嘉佑</option><option value="大軍">大軍</option><option value="冠錡">冠錡</option>
+                    <option value="敏瑞">敏瑞</option><option value="孟孟">孟孟</option><option value="阿穆">阿穆</option><option value="小雄">小雄</option>
+                </select>
+
+                <!-- 新增：搜尋功能欄位 -->
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" id="search-input" 
+                           class="w-full pl-10 pr-10 py-3 bg-gray-50 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500" 
+                           placeholder="搜尋手機編號或型號..."
+                           oninput="handleSearch(this.value)">
+                    <button id="clear-search" onclick="clearSearch()" class="hidden absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times-circle"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex overflow-x-auto border-b mb-4 text-sm no-scrollbar bg-white sticky top-[68px] z-40 rounded-t-xl">
+            <button onclick="switchTab('all', this)" class="tab-btn px-6 py-4 tab-active">全部</button>
+            <button onclick="switchTab('A', this)" class="tab-btn px-6 py-4 text-gray-500">A 系列</button>
+            <button onclick="switchTab('I', this)" class="tab-btn px-6 py-4 text-gray-500">I 系列</button>
+            <button onclick="switchTab('O', this)" class="tab-btn px-6 py-4 text-gray-500">O 系列</button>
+            <button onclick="switchTab('C', this)" class="tab-btn px-6 py-4 text-gray-500">C 系列</button>
+            <button onclick="switchTab('un', this)" class="tab-btn px-6 py-4 text-red-500 font-bold">⚠️ 未完成</button>
+        </div>
+
+        <div id="grid-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+        
+        <!-- 當搜尋不到結果時顯示 -->
+        <div id="no-result" class="hidden py-20 text-center">
+            <i class="fas fa-search-minus text-4xl text-gray-300 mb-4"></i>
+            <p class="text-gray-500">找不到符合條件的手機</p>
+        </div>
+    </main>
+
+    <footer class="fixed bottom-0 inset-x-0 bg-white/80 backdrop-blur-md border-t p-4 flex gap-3 z-50">
+        <button onclick="openTempModal()" class="flex-1 bg-amber-500 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition-all">暫存進度</button>
+        <button onclick="trySubmitFinal()" id="submit-btn" class="flex-1 bg-green-600 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition-all">正式上傳</button>
+    </footer>
+
+    <script>
+        const DEFAULT_API = "https://script.google.com/macros/s/AKfycbybXMboZmSdTiwrOS3qWv-stFJ1q-pTTOqnyenTXVyv_1CnahhaAUfkTTdJPvHHPoWc/exec";
+        const DEFAULT_UNITS = ["機櫃", "中班", "GMO", "評測", "M舞", "SA", "晚班", "OLD_TS", "OLD_網頁", "OLD_RD5", "OLD_RD4", "OLD_RD3", "OLD_RD2", "OLD_RD1", "OLD_OPO", "ACD_RD6", "ACD_RD5", "ACD_RD4", "ACD_RD3", "ACD_RD2", "ACD_RD1", "MKT", "MIS", "報廢", "送修"];
+        
+        let rawData = [];
+        let availableUnits = []; 
+        let currentTab = 'all';
+        let searchQuery = '';
+        let cloudInitialMap = {};
+
+        // 簽名板相關變數
+        let canvas, ctx;
+        let isDrawing = false;
+        let currentSignTarget = null; 
+
+        window.onload = function() {
+            initApiUrl();
+            fetchData();
+            initCanvas();
+        };
+
+        function initApiUrl() {
+            const savedUrl = localStorage.getItem('inventory_api_url');
+            const input = document.getElementById('api-url-input');
+            input.value = savedUrl ? savedUrl : DEFAULT_API;
+        }
+
+        function getApiUrl() {
+            let url = document.getElementById('api-url-input').value.trim();
+            return url ? url : DEFAULT_API;
+        }
+
+        function saveApiUrl() {
+            const url = document.getElementById('api-url-input').value.trim();
+            if(url) localStorage.setItem('inventory_api_url', url);
+        }
+
+        function resetApiUrl() {
+            document.getElementById('api-url-input').value = DEFAULT_API;
+            localStorage.removeItem('inventory_api_url');
+            showMessage('系統訊息', '已恢復預設網址，請重新整理。', () => location.reload());
+        }
+
+        function toggleSettings() {
+            document.getElementById('settings-area').classList.toggle('open');
+            document.getElementById('settings-arrow').classList.toggle('rotate-180');
+        }
+
+        async function fetchData() {
+            document.getElementById('loading-overlay').style.display = 'flex';
+            document.getElementById('loading-text').innerText = '同步雲端資料中...';
+            
+            try {
+                const API = getApiUrl();
+                const res = await fetch(`${API}?t=${Date.now()}`);
+                if(!res.ok) throw new Error("Network response was not ok");
+                
+                const data = await res.json();
+                
+                if (Array.isArray(data)) {
+                    rawData = data;
+                    availableUnits = DEFAULT_UNITS;
+                } else {
+                    rawData = data.inventory || [];
+                    const cloudUnits = data.units || [];
+                    const mergedUnits = [...DEFAULT_UNITS, ...cloudUnits];
+                    availableUnits = Array.from(new Set(mergedUnits));
+                }
+                
+                cloudInitialMap = {};
+                rawData.forEach(p => cloudInitialMap[p.id] = (p.borrow_unit || "未盤點").trim());
+                render();
+            } catch (e) { 
+                document.getElementById('loading-overlay').style.display = 'none';
+                showMessage('讀取失敗', `無法讀取資料，請檢查網址或網路。\n(${e.message})`, () => {
+                    document.getElementById('settings-area').classList.add('open');
+                }, true);
+                return;
+            }
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
+
+        function initCanvas() {
+            canvas = document.getElementById('sig-canvas');
+            ctx = canvas.getContext('2d');
+            ctx.lineWidth = 3;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#000';
+
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+
+            canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDrawing(e.touches[0]); });
+            canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e.touches[0]); });
+            canvas.addEventListener('touchend', (e) => { e.preventDefault(); stopDrawing(); });
+        }
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+        function startDrawing(e) { isDrawing = true; const pos = getPos(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); }
+        function draw(e) { if (!isDrawing) return; const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke(); }
+        function stopDrawing() { isDrawing = false; }
+        function clearSignature() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+
+        function setUnit(id, unit) {
+            if (!unit) return; 
+            const isReturn = ["未盤點", "機櫃", "中班", "歸還"].includes(unit);
+            
+            if (!isReturn) {
+                updateLocalData(id, unit, null);
+                currentSignTarget = { id: id, unit: unit };
+                clearSignature();
+                document.getElementById('signature-modal').classList.remove('hidden');
+            } else {
+                updateLocalData(id, unit, null);
+            }
+        }
+
+        function confirmSignature() {
+            const base64 = canvas.toDataURL('image/png');
+            if(currentSignTarget) {
+                updateLocalData(currentSignTarget.id, currentSignTarget.unit, base64);
+            }
+            closeSignatureModal(true);
+        }
+
+        function closeSignatureModal(saved) {
+            document.getElementById('signature-modal').classList.add('hidden');
+            if (!saved && currentSignTarget) { 
+                updateLocalData(currentSignTarget.id, "未盤點", null);
+            }
+            currentSignTarget = null;
+        }
+
+        function updateLocalData(id, unit, signature, returnUser) {
+            const p = rawData.find(x => x.id === id);
+            p.borrow_unit = unit || "出借";
+            if(signature) p.signature = signature; 
+            else if (unit === "機櫃" || unit === "中班" || unit === "歸還") delete p.signature;
+            
+            if(returnUser) p.return_user = returnUser;
+            else delete p.return_user;
+
+            render();
+        }
+
+        function updateDetail(id, field, value) {
+            const p = rawData.find(x => x.id === id);
+            p[field] = value;
+        }
+
+        function triggerReturn(id) {
+            const p = rawData.find(x => x.id === id);
+            p._isReturning = true; 
+            render();
+            setTimeout(() => {
+                const input = document.getElementById(`return-input-${id}`);
+                if(input) input.focus();
+            }, 100);
+        }
+
+        function cancelReturn(id) {
+            const p = rawData.find(x => x.id === id);
+            delete p._isReturning;
+            render();
+        }
+
+        function confirmReturn(id) {
+            const input = document.getElementById(`return-input-${id}`);
+            const val = input.value.trim();
+            if(!val) return showMessage("提醒", "請輸入確認人員姓名！", null, true);
+            
+            const p = rawData.find(x => x.id === id);
+            delete p._isReturning;
+            updateLocalData(id, "歸還", null, val);
+        }
+
+        // 搜尋邏輯
+        function handleSearch(val) {
+            searchQuery = val.trim().toLowerCase();
+            const clearBtn = document.getElementById('clear-search');
+            if (searchQuery) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+            render();
+        }
+
+        function clearSearch() {
+            document.getElementById('search-input').value = '';
+            searchQuery = '';
+            document.getElementById('clear-search').classList.add('hidden');
+            render();
+        }
+
+        function render() {
+            const container = document.getElementById('grid-container');
+            const missingContainer = document.getElementById('missing-tags');
+            const noResultEl = document.getElementById('no-result');
+            let missingIds = [];
+            container.innerHTML = '';
+            missingContainer.innerHTML = '';
+
+            let shownCount = 0;
+
+            rawData.forEach(p => {
+                const id = p.id;
+                const unit = (p.borrow_unit || "未盤點").trim();
+                let status = 'neutral';
+                let isKnownUnit = availableUnits.includes(unit);
+
+                if (unit === '機櫃') status = 'cabinet';
+                else if (unit === '中班') status = 'mid';
+                else if (unit === '出借' || (isKnownUnit && unit !== '歸還')) status = 'borrowed';
+                else if (unit === '歸還') status = 'returned';
+
+                if (status === 'neutral' || unit === '出借') missingIds.push(id);
+
+                // 組合過濾條件：分頁標籤 + 搜尋文字
+                let isTabShow = (currentTab === 'all') || 
+                                (currentTab === 'un' && (status === 'neutral' || unit === '出借')) || 
+                                (id.startsWith(currentTab));
+
+                let isSearchShow = !searchQuery || 
+                                   id.toLowerCase().includes(searchQuery) || 
+                                   (p.model && p.model.toLowerCase().includes(searchQuery));
+
+                if(isTabShow && isSearchShow) {
+                    shownCount++;
+                    const card = document.createElement('div');
+                    let borderClass = 'border-gray-100 shadow-sm';
+                    let bgClass = 'bg-white';
+                    if (status === 'cabinet') { borderClass = 'border-green-400'; bgClass = 'bg-green-50/20'; }
+                    else if (status === 'mid') { borderClass = 'border-amber-400'; bgClass = 'bg-amber-50/20'; }
+                    else if (status === 'borrowed') { borderClass = 'border-blue-400'; bgClass = 'bg-blue-50/20'; }
+                    else if (status === 'returned') { borderClass = 'border-purple-400'; bgClass = 'bg-purple-50/20'; }
+
+                    card.className = `p-4 rounded-xl border-2 transition-all ${borderClass} ${bgClass}`;
+                    card.id = `card-${id}`;
+                    
+                    let sigBadge = p.signature ? '<span class="ml-1 text-[10px] text-green-600 border border-green-600 px-1 rounded"><i class="fas fa-check"></i> 已簽名</span>' : '';
+                    let returnBadge = (status === 'returned') ? `<span class="ml-1 text-[10px] text-purple-600 border border-purple-600 px-1 rounded"><i class="fas fa-undo"></i> 歸還: ${p.return_user}</span>` : '';
+
+                    let cardContent = '';
+                    if (p._isReturning) {
+                        cardContent = `
+                            <div class="mb-2">
+                                <label class="text-xs font-bold text-gray-500">歸還確認人員：</label>
+                                <div class="flex gap-2 mt-1">
+                                    <input type="text" id="return-input-${id}" class="w-full p-2 border rounded text-sm" placeholder="輸入姓名">
+                                    <button onclick="confirmReturn('${id}')" class="bg-purple-600 text-white px-3 rounded text-xs">確認</button>
+                                    <button onclick="cancelReturn('${id}')" class="bg-gray-300 text-gray-700 px-2 rounded text-xs"><i class="fas fa-times"></i></button>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        let returnBtn = (status === 'borrowed') ? 
+                            `<button onclick="triggerReturn('${id}')" class="flex-1 py-2 text-xs border border-purple-300 text-purple-600 bg-white hover:bg-purple-50 rounded-lg transition-colors font-bold"><i class="fas fa-undo mr-1"></i>歸還</button>` : '';
+
+                        let detailInputs = '';
+                        if (status === 'borrowed') {
+                            detailInputs = `
+                                <div class="mt-2 pt-2 border-t border-blue-200">
+                                    <div class="mb-2">
+                                        <label class="block text-[10px] text-gray-500 font-bold mb-0.5">借用人</label>
+                                        <input type="text" value="${p.borrower || ''}" oninput="updateDetail('${id}', 'borrower', this.value)" class="detail-input">
+                                    </div>
+                                    <div class="flex gap-2 mb-2">
+                                        <div class="flex-1">
+                                            <label class="block text-[10px] text-gray-500 font-bold mb-0.5">分機</label>
+                                            <input type="text" value="${p.extension || ''}" oninput="updateDetail('${id}', 'extension', this.value)" class="detail-input">
+                                        </div>
+                                        <div class="flex-1">
+                                            <label class="block text-[10px] text-gray-500 font-bold mb-0.5">出借人員</label>
+                                            <input type="text" value="${p.lender || ''}" oninput="updateDetail('${id}', 'lender', this.value)" class="detail-input">
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center text-xs mt-1">
+                                        <span class="mr-2 text-gray-600 font-bold">借充電器材?</span>
+                                        <label class="mr-2"><input type="radio" name="charger-${id}" value="有" ${p.charger === '有' ? 'checked' : ''} onclick="updateDetail('${id}', 'charger', '有')"> 有</label>
+                                        <label><input type="radio" name="charger-${id}" value="無" ${p.charger === '無' || !p.charger ? 'checked' : ''} onclick="updateDetail('${id}', 'charger', '無')"> 無</label>
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        cardContent = `
+                            <div class="flex gap-1 mb-2">
+                                <button onclick="setStatus('${id}', '機櫃')" class="flex-1 py-2 text-xs border rounded-lg transition-colors ${status==='cabinet'?'bg-green-500 text-white font-bold border-green-600':'bg-white text-gray-400 hover:bg-gray-50'}">機櫃</button>
+                                <button onclick="setStatus('${id}', '中班')" class="flex-1 py-2 text-xs border rounded-lg transition-colors ${status==='mid'?'bg-amber-500 text-white font-bold border-amber-600':'bg-white text-gray-400 hover:bg-gray-50'}">中班</button>
+                                <button onclick="setStatus('${id}', '出借')" class="flex-1 py-2 text-xs border rounded-lg transition-colors ${status==='borrowed'?'bg-blue-500 text-white font-bold border-blue-600':'bg-white text-gray-400 hover:bg-gray-50'}">出借</button>
+                            </div>
+                            ${returnBtn ? `<div class="mb-2 flex">${returnBtn}</div>` : ''}
+                            <select onchange="setUnit('${id}', this.value)" class="w-full p-2 text-xs border rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-400 ${status==='borrowed'?'':'hidden'}">
+                                <option value="">-- 必選出借單位 --</option>
+                                ${availableUnits.map(u => `<option value="${u}" ${unit===u?'selected':''}>${u}</option>`).join('')}
+                            </select>
+                            ${detailInputs}
+                        `;
+                    }
+
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="text-xl font-black font-mono tracking-tight">${id}</span>
+                            <div class="flex flex-col items-end">
+                                <span class="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-medium mb-1">${p.model}</span>
+                                ${sigBadge}
+                                ${returnBadge}
+                            </div>
+                        </div>
+                        ${cardContent}
+                    `;
+                    container.appendChild(card);
+                }
+            });
+
+            // 處理查無結果的顯示
+            if (shownCount === 0) {
+                noResultEl.classList.remove('hidden');
+            } else {
+                noResultEl.classList.add('hidden');
+            }
+
+            document.getElementById('total-count').innerText = rawData.length;
+            missingIds.forEach(mid => {
+                const span = document.createElement('span');
+                span.className = "missing-tag bg-red-50 text-red-600 px-2 py-1 rounded-md text-[11px] font-mono font-bold border border-red-200 cursor-pointer";
+                span.innerText = mid;
+                span.onclick = () => {
+                    const target = document.getElementById(`card-${mid}`);
+                    if(target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        target.classList.add('ring-4', 'ring-red-300');
+                        setTimeout(() => target.classList.remove('ring-4', 'ring-red-300'), 2000);
+                    } else {
+                        // 如果該卡片被隱藏了，切換回全部並重新搜尋
+                        clearSearch();
+                        switchTab('all', document.querySelector('.tab-btn'));
+                        setTimeout(() => {
+                            const t = document.getElementById(`card-${mid}`);
+                            if(t) t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 300);
+                    }
+                };
+                missingContainer.appendChild(span);
+            });
+        }
+
+        function setStatus(id, s) {
+            const p = rawData.find(x => x.id === id);
+            if (s === '機櫃' || s === '中班') {
+                delete p.signature;
+                delete p.return_user;
+                delete p._isReturning;
+                delete p.borrower;
+                delete p.extension;
+                delete p.charger;
+                delete p.lender;
+            }
+
+            if (p.borrow_unit === s || (s === '出借' && availableUnits.includes(p.borrow_unit))) {
+                p.borrow_unit = "未盤點";
+            } else {
+                p.borrow_unit = s;
+            }
+            render();
+        }
+
+        function switchTab(t, b) {
+            currentTab = t;
+            document.querySelectorAll('.tab-btn').forEach(x => { x.classList.remove('tab-active'); x.classList.add('text-gray-500'); });
+            b.classList.add('tab-active'); b.classList.remove('text-gray-500');
+            render();
+        }
+
+        function validate() {
+            const invalid = rawData.filter(p => p.borrow_unit === "出借");
+            if(invalid.length > 0) {
+                showMessage("資料錯誤", `以下手機已選「出借」但未選擇單位：\n${invalid.map(x=>x.id).join(', ')}`, null, true);
+                return false;
+            }
+            return true;
+        }
+
+        async function openTempModal() {
+            if(!validate()) return;
+            const localChanges = rawData.filter(p => p.borrow_unit !== cloudInitialMap[p.id]);
+            if(localChanges.length === 0) return showMessage('提示', "資料與雲端一致，無需暫存。");
+
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const loadingText = document.getElementById('loading-text');
+            loadingOverlay.style.display = 'flex';
+            loadingText.innerText = '正在檢查雲端資料衝突...';
+
+            try {
+                const API = getApiUrl();
+                const res = await fetch(`${API}?t=${Date.now()}`);
+                if(!res.ok) throw new Error("Network error");
+                
+                const data = await res.json();
+                let freshData = Array.isArray(data) ? data : (data.inventory || []);
+                const freshMap = {};
+                freshData.forEach(p => freshMap[p.id] = (p.borrow_unit || "未盤點").trim());
+
+                const conflicts = [];
+                localChanges.forEach(change => {
+                    const freshStatus = freshMap[change.id];
+                    const initialStatus = cloudInitialMap[change.id];
+                    if (freshStatus !== initialStatus && freshStatus !== "未盤點") {
+                         conflicts.push(`• ${change.id} (已被變更為: ${freshStatus})`);
+                    }
+                });
+                loadingOverlay.style.display = 'none';
+                if (conflicts.length > 0) {
+                    let msg = "暫存區已有該編號(手機)資料，請再次確認！\n\n以下手機已被其他人更新：\n" + conflicts.join('\n');
+                    showMessage("❌ 資料衝突警告", msg, null, true);
+                    return;
+                }
+                document.getElementById('change-preview').innerHTML = localChanges.map(c => `<div class="py-1 border-b flex justify-between"><span>${c.id}</span><span>${cloudInitialMap[c.id]} -> <b class="text-amber-600">${c.borrow_unit}</b></span></div>`).join('');
+                document.getElementById('temp-modal').classList.remove('hidden');
+
+            } catch(e) {
+                loadingOverlay.style.display = 'none';
+                showMessage('檢查失敗', "無法連接雲端檢查衝突(網路錯誤)。" + e.message, null, true);
+            }
+        }
+
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        async function confirmSave() {
+            const name = document.getElementById('registrar-name').value.trim();
+            if(!name) return showMessage('錯誤', "請填寫姓名！", null, true);
+            
+            const btn = document.getElementById('save-btn');
+            btn.disabled = true;
+            btn.innerText = "儲存中...";
+            
+            document.getElementById('loading-overlay').style.display = 'flex';
+            document.getElementById('loading-text').innerText = '正在寫入暫存區...';
+
+            const inventory = rawData.filter(p => p.borrow_unit !== cloudInitialMap[p.id]).map(p => ({ 
+                id: p.id, 
+                status: p.borrow_unit, 
+                signature: p.signature,
+                return_user: p.return_user,
+                borrower: p.borrower,
+                extension: p.extension,
+                charger: p.charger,
+                lender: p.lender
+            }));
+            
+            try {
+                const API = getApiUrl();
+                const fetchPromise = fetch(API, { 
+                    method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: "temp_save", registrar: name, inventory: inventory })
+                });
+                const timeoutPromise = new Promise(resolve => setTimeout(resolve, 3000));
+                await Promise.race([fetchPromise, timeoutPromise]);
+
+                document.getElementById('loading-overlay').style.display = 'none';
+                inventory.forEach(item => { cloudInitialMap[item.id] = item.status; });
+                closeModal('temp-modal');
+                btn.disabled = false; btn.innerText = "確認儲存";
+                showMessage("成功", "暫存成功！\n資料已同步至後端。");
+            } catch(e) { 
+                document.getElementById('loading-overlay').style.display = 'none';
+                showMessage('錯誤', "寫入失敗(網路錯誤)：" + e, null, true);
+                btn.disabled = false; btn.innerText = "確認儲存";
+            }
+        }
+
+        function trySubmitFinal() {
+            if(!validate()) return;
+
+            const uninventoried = rawData.filter(p => !p.borrow_unit || p.borrow_unit === "未盤點");
+            
+            if (uninventoried.length > 0) {
+                let idList = uninventoried.map(p => p.id).join(', ');
+                let displayList = idList;
+                if (idList.length > 150) {
+                    displayList = idList.substring(0, 150) + "...等共 " + uninventoried.length + " 筆";
+                }
+                
+                showMessage("無法上傳", `⚠️ 尚有 ${uninventoried.length} 筆手機未盤點！\n\n請確認以下手機狀態後再進行正式上傳：\n${displayList}`, null, true);
+                return;
+            }
+
+            const name = document.getElementById('main-user').value;
+            if(!name) return showMessage("錯誤", "請選取「正式上傳的主責盤點人員」！", () => document.getElementById('main-user').focus(), true);
+            showConfirmDialog("確認正式上傳？", "將覆蓋雲端的「今日盤點資料」並清空暫存區。", executeFinalSubmit);
+        }
+
+        async function executeFinalSubmit() {
+            const name = document.getElementById('main-user').value;
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+            const loadingOverlay = document.getElementById('loading-overlay');
+            loadingOverlay.style.display = 'flex';
+            document.getElementById('loading-text').innerText = '正在正式上傳資料，請稍後...';
+
+            const inventory = rawData.map(p => ({ 
+                id: p.id, 
+                status: p.borrow_unit, 
+                signature: p.signature,
+                return_user: p.return_user,
+                borrower: p.borrower,
+                extension: p.extension,
+                charger: p.charger,
+                lender: p.lender
+            }));
+            
+            try {
+                const API = getApiUrl();
+                const fetchPromise = fetch(API, { 
+                    method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
+                    body: JSON.stringify({ action: "submit", registrar: name, inventory: inventory })
+                });
+                const timeoutPromise = new Promise(resolve => setTimeout(resolve, 10000));
+                await Promise.race([fetchPromise, timeoutPromise]);
+                
+                loadingOverlay.style.display = 'none';
+                showMessage("上傳成功", "🎉 請求已發送！\n系統將自動重整。", () => location.reload());
+            } catch(e) { 
+                loadingOverlay.style.display = 'none';
+                showMessage("上傳失敗", "提交過程發生錯誤：" + e, null, true);
+                btn.disabled = false;
+            }
+        }
+
+        function showConfirmDialog(title, message, onConfirm) {
+            const modal = document.getElementById('system-modal');
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            document.getElementById('modal-actions').innerHTML = `
+                <button id="modal-cancel-btn" class="flex-1 py-2 border border-gray-300 rounded-lg text-gray-600 font-bold hover:bg-gray-50">取消</button>
+                <button id="modal-confirm-btn" class="flex-1 py-2 rounded-lg bg-green-600 text-white font-bold shadow hover:bg-green-700">確定提交</button>
+            `;
+            document.getElementById('modal-cancel-btn').onclick = () => modal.classList.add('hidden');
+            document.getElementById('modal-confirm-btn').onclick = () => { modal.classList.add('hidden'); onConfirm(); };
+            modal.classList.remove('hidden');
+        }
+        function showMessage(title, message, callback = null, isError = false) {
+            const modal = document.getElementById('system-modal');
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            document.getElementById('modal-actions').innerHTML = `<button id="modal-ok-btn" class="flex-1 py-2 rounded-lg text-white font-bold shadow bg-blue-600 hover:bg-blue-700">確定</button>`;
+            document.getElementById('modal-ok-btn').onclick = () => { modal.classList.add('hidden'); if(callback) callback(); };
+            modal.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
