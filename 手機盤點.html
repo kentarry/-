@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>手機盤點系統 V3.8 - 新增搜尋功能</title>
+    <title>手機盤點系統 V3.11 - 精準抓漏版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -87,8 +87,30 @@
                 <button onclick="closeModal('temp-modal')"><i class="fas fa-times"></i></button>
             </div>
             <div class="p-6">
-                <label class="block text-sm font-bold text-gray-700 mb-2">登記人員姓名</label>
-                <input type="text" id="registrar-name" class="w-full p-3 border rounded-xl mb-4 outline-none focus:ring-2 focus:ring-amber-500" placeholder="請輸入姓名">
+                <!-- 暫存登記人採用完整名單 -->
+                <label class="block text-sm font-bold text-gray-700 mb-2">登記人員姓名 <span class="text-red-500">*</span></label>
+                <select id="registrar-name" class="w-full p-3 border rounded-xl mb-4 outline-none focus:ring-2 focus:ring-amber-500">
+                    <option value="">-- 請選擇您的姓名 --</option>
+                    <option value="許昕慈">許昕慈</option>
+                    <option value="簡伶珊">簡伶珊</option>
+                    <option value="許庭瑊">許庭瑊</option>
+                    <option value="彭毓雯">彭毓雯</option>
+                    <option value="王溶蓁">王溶蓁</option>
+                    <option value="秦嘉佑">秦嘉佑</option>
+                    <option value="郭冠麟">郭冠麟</option>
+                    <option value="江冠錡">江冠錡</option>
+                    <option value="李敏瑞">李敏瑞</option>
+                    <option value="呂孟軒">呂孟軒</option>
+                    <option value="穆道生">穆道生</option>
+                    <option value="林敏雄">林敏雄</option>
+                    <option value="林榆昕">林榆昕</option>
+                    <option value="洪全緯">洪全緯</option>
+                    <option value="蔡曜宇">蔡曜宇</option>
+                    <option value="王雯鈺">王雯鈺</option>
+                    <option value="周啟堂">周啟堂</option>
+                    <option value="宋灝平">宋灝平</option>
+                </select>
+
                 <p class="text-[10px] text-gray-400 mb-2">本次變更預覽：</p>
                 <div id="change-preview" class="text-xs bg-gray-50 p-3 rounded-lg max-h-40 overflow-y-auto mb-6 border font-mono"></div>
                 <div class="flex gap-3">
@@ -99,15 +121,50 @@
         </div>
     </div>
 
+    <!-- 正式上傳 Modal -->
+    <div id="submit-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div class="bg-green-600 p-4 text-white flex justify-between items-center">
+                <h3 class="font-bold text-lg"><i class="fas fa-cloud-upload-alt mr-2"></i>確認正式上傳</h3>
+                <button onclick="closeModal('submit-modal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-6">
+                <p class="text-sm text-gray-600 mb-4 leading-relaxed">
+                    這將執行以下動作：<br>
+                    1. 覆蓋雲端的「今日盤點資料」。<br>
+                    2. 清空所有的「暫存紀錄」。<br>
+                    3. 更新出借狀態與簽名。
+                </p>
+                <label class="block text-sm font-bold text-gray-700 mb-2">主責盤點人員 <span class="text-red-500">*</span></label>
+                <select id="submit-main-user" class="w-full p-3 bg-gray-50 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-green-500 mb-6">
+                    <option value="">-- 請選取正式上傳的主責人員 --</option>
+                    <option value="昕慈">昕慈</option><option value="零三">零三</option><option value="庭瑊">庭瑊</option><option value="HAMA">HAMA</option>
+                    <option value="阿布">阿布</option><option value="嘉佑">嘉佑</option><option value="大軍">大軍</option><option value="冠錡">冠錡</option>
+                    <option value="敏瑞">敏瑞</option><option value="孟孟">孟孟</option><option value="阿穆">阿穆</option><option value="小雄">小雄</option>
+                </select>
+                
+                <div class="flex gap-3">
+                    <button onclick="closeModal('submit-modal')" class="flex-1 py-3 border rounded-xl hover:bg-gray-100 transition-colors">取消</button>
+                    <button onclick="confirmSubmitFinal()" class="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all">確定提交</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 頂部 Header -->
     <header class="bg-white shadow-sm sticky top-0 z-50 p-4">
         <div class="max-w-6xl mx-auto flex justify-between items-center">
-            <h1 class="font-bold text-xl text-gray-800 flex items-center"><i class="fas fa-mobile-alt mr-2 text-blue-600"></i>手機盤點 V3.8</h1>
-            <button onclick="fetchData()" class="text-blue-600 text-sm font-bold hover:bg-blue-50 px-2 py-1 rounded transition-all"><i class="fas fa-sync-alt"></i> 同步最新</button>
+            <h1 class="font-bold text-xl text-gray-800 flex items-center"><i class="fas fa-mobile-alt mr-2 text-blue-600"></i>手機盤點 V3.11</h1>
+            
+            <div class="flex gap-2">
+                <button onclick="checkMissingPeople()" class="text-amber-600 text-sm font-bold hover:bg-amber-50 px-3 py-1 rounded-lg transition-all border border-amber-200 shadow-sm"><i class="fas fa-user-clock"></i> 一鍵抓漏</button>
+                <button onclick="fetchData()" class="text-blue-600 text-sm font-bold hover:bg-blue-50 px-3 py-1 rounded-lg transition-all border border-blue-200 shadow-sm"><i class="fas fa-sync-alt"></i> 同步最新</button>
+            </div>
         </div>
     </header>
 
     <main class="max-w-6xl mx-auto p-4">
-        <!-- 頂部資訊卡與人員選擇 -->
+        <!-- 頂部資訊卡 -->
         <div class="bg-white p-5 rounded-2xl shadow-sm border mb-6">
             <div class="flex flex-col md:flex-row md:items-end gap-6 mb-4">
                 <div>
@@ -120,15 +177,8 @@
                 </div>
             </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <select id="main-user" class="w-full p-3 bg-gray-50 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">-- 選取正式上傳的主責盤點人員 --</option>
-                    <option value="昕慈">昕慈</option><option value="零三">零三</option><option value="庭瑊">庭瑊</option><option value="HAMA">HAMA</option>
-                    <option value="阿布">阿布</option><option value="嘉佑">嘉佑</option><option value="大軍">大軍</option><option value="冠錡">冠錡</option>
-                    <option value="敏瑞">敏瑞</option><option value="孟孟">孟孟</option><option value="阿穆">阿穆</option><option value="小雄">小雄</option>
-                </select>
-
-                <!-- 新增：搜尋功能欄位 -->
+            <div class="w-full">
+                <!-- 搜尋功能欄位 -->
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                         <i class="fas fa-search"></i>
@@ -168,7 +218,7 @@
     </footer>
 
     <script>
-        const DEFAULT_API = "https://script.google.com/macros/s/AKfycbybXMboZmSdTiwrOS3qWv-stFJ1q-pTTOqnyenTXVyv_1CnahhaAUfkTTdJPvHHPoWc/exec";
+        const DEFAULT_API = "https://script.google.com/macros/s/AKfycbxVckmqcb0HYPzqiTUrmXS4_Zc0NDXhXTCik-oaLx5s1soPkuFDxu8UoVsfjiUVyDdG/exec";
         const DEFAULT_UNITS = ["機櫃", "中班", "GMO", "評測", "M舞", "SA", "晚班", "OLD_TS", "OLD_網頁", "OLD_RD5", "OLD_RD4", "OLD_RD3", "OLD_RD2", "OLD_RD1", "OLD_OPO", "ACD_RD6", "ACD_RD5", "ACD_RD4", "ACD_RD3", "ACD_RD2", "ACD_RD1", "MKT", "MIS", "報廢", "送修"];
         
         let rawData = [];
@@ -226,6 +276,10 @@
                 
                 const data = await res.json();
                 
+                // ★ 防呆備份：暫存本地已經記錄的登記人，避免後端延遲導致名字消失
+                const localRegistrars = {};
+                rawData.forEach(p => { if(p.registrar) localRegistrars[p.id] = p.registrar; });
+
                 if (Array.isArray(data)) {
                     rawData = data;
                     availableUnits = DEFAULT_UNITS;
@@ -237,7 +291,13 @@
                 }
                 
                 cloudInitialMap = {};
-                rawData.forEach(p => cloudInitialMap[p.id] = (p.borrow_unit || "未盤點").trim());
+                rawData.forEach(p => {
+                    cloudInitialMap[p.id] = (p.borrow_unit || "未盤點").trim();
+                    // ★ 如果後端沒抓到人名，但網頁剛剛已經記住了，就補回去
+                    if (!p.registrar && localRegistrars[p.id]) {
+                        p.registrar = localRegistrars[p.id];
+                    }
+                });
                 render();
             } catch (e) { 
                 document.getElementById('loading-overlay').style.display = 'none';
@@ -366,6 +426,32 @@
             searchQuery = '';
             document.getElementById('clear-search').classList.add('hidden');
             render();
+        }
+
+        // 一鍵抓漏邏輯
+        function checkMissingPeople() {
+            const TEAM_MEMBERS = [
+                "許昕慈", "簡伶珊", "許庭瑊", "彭毓雯", "王溶蓁", 
+                "秦嘉佑", "郭冠麟", "江冠錡", "李敏瑞", "呂孟軒", 
+                "穆道生", "林敏雄", "林榆昕", "洪全緯", "蔡曜宇", 
+                "王雯鈺", "周啟堂", "宋灝平"
+            ];
+
+            const registeredUsers = new Set();
+            rawData.forEach(p => {
+                if (p.registrar) {
+                    registeredUsers.add(p.registrar);
+                }
+            });
+
+            const missingUsers = TEAM_MEMBERS.filter(name => !registeredUsers.has(name));
+
+            if (missingUsers.length === 0) {
+                showMessage("抓漏結果", "🎉 太棒了！所有組員都已經在暫存區登錄過了！");
+            } else {
+                const msg = `⚠️ 以下人員尚未進行盤點暫存：\n\n${missingUsers.map(u => `• ${u}`).join('\n')}\n\n請盡快提醒他們開啟系統完成盤點！`;
+                showMessage("尚未登錄人員名單", msg, null, true);
+            }
         }
 
         function render() {
@@ -604,7 +690,7 @@
 
         async function confirmSave() {
             const name = document.getElementById('registrar-name').value.trim();
-            if(!name) return showMessage('錯誤', "請填寫姓名！", null, true);
+            if(!name) return showMessage('錯誤', "請選擇登記姓名！", null, true);
             
             const btn = document.getElementById('save-btn');
             btn.disabled = true;
@@ -634,7 +720,12 @@
                 await Promise.race([fetchPromise, timeoutPromise]);
 
                 document.getElementById('loading-overlay').style.display = 'none';
-                inventory.forEach(item => { cloudInitialMap[item.id] = item.status; });
+                inventory.forEach(item => { 
+                    cloudInitialMap[item.id] = item.status;
+                    // 將當前登錄者名稱暫存至前端資料，以便重整前依然可判斷
+                    const p = rawData.find(x => x.id === item.id);
+                    if(p) p.registrar = name; 
+                });
                 closeModal('temp-modal');
                 btn.disabled = false; btn.innerText = "確認儲存";
                 showMessage("成功", "暫存成功！\n資料已同步至後端。");
@@ -645,6 +736,7 @@
             }
         }
 
+        // 修改後的 trySubmitFinal 函式：檢查未盤點，並改為觸發 submit-modal
         function trySubmitFinal() {
             if(!validate()) return;
 
@@ -661,13 +753,21 @@
                 return;
             }
 
-            const name = document.getElementById('main-user').value;
-            if(!name) return showMessage("錯誤", "請選取「正式上傳的主責盤點人員」！", () => document.getElementById('main-user').focus(), true);
-            showConfirmDialog("確認正式上傳？", "將覆蓋雲端的「今日盤點資料」並清空暫存區。", executeFinalSubmit);
+            // 開啟正式上傳專用的 Modal
+            document.getElementById('submit-modal').classList.remove('hidden');
         }
 
-        async function executeFinalSubmit() {
-            const name = document.getElementById('main-user').value;
+        // 新增：處理 submit-modal 的確認按鈕
+        function confirmSubmitFinal() {
+            const name = document.getElementById('submit-main-user').value;
+            if(!name) return showMessage("錯誤", "請選取「正式上傳的主責盤點人員」！", null, true);
+            
+            document.getElementById('submit-modal').classList.add('hidden');
+            executeFinalSubmit(name);
+        }
+
+        // 修改：接收 name 參數來進行上傳
+        async function executeFinalSubmit(name) {
             const btn = document.getElementById('submit-btn');
             btn.disabled = true;
             const loadingOverlay = document.getElementById('loading-overlay');
@@ -715,6 +815,7 @@
             document.getElementById('modal-confirm-btn').onclick = () => { modal.classList.add('hidden'); onConfirm(); };
             modal.classList.remove('hidden');
         }
+
         function showMessage(title, message, callback = null, isError = false) {
             const modal = document.getElementById('system-modal');
             document.getElementById('modal-title').innerText = title;
