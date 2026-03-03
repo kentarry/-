@@ -24,7 +24,6 @@
 </head>
 <body>
 
-    <!-- 系統設定區塊 -->
     <div id="settings-area" class="settings-box">
         <div class="flex justify-between items-center cursor-pointer" onclick="toggleSettings()">
             <span><i class="fas fa-cog mr-1"></i> 系統連線設定 (若連線失敗請點此檢查)</span>
@@ -42,13 +41,11 @@
         </div>
     </div>
 
-    <!-- Loading 遮罩 -->
     <div id="loading-overlay">
         <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-600 mb-4"></div>
         <p class="text-gray-600 font-bold" id="loading-text">處理中...</p>
     </div>
 
-    <!-- 通用訊息/確認視窗 -->
     <div id="system-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[200]">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
             <div id="modal-header" class="bg-gray-800 p-4 text-white font-bold flex items-center">
@@ -62,15 +59,14 @@
         </div>
     </div>
 
-    <!-- 簽名板 Modal -->
     <div id="signature-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[150]">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
             <div class="bg-blue-600 p-3 text-white flex justify-between items-center">
                 <h3 class="font-bold"><i class="fas fa-pen-nib mr-2"></i>借用人簽名</h3>
                 <button onclick="closeSignatureModal(false)"><i class="fas fa-times"></i></button>
             </div>
-            <div class="p-4 flex-1 bg-gray-100 flex justify-center">
-                <canvas id="sig-canvas" class="bg-white border-2 border-dashed border-gray-400 rounded shadow-inner" width="300" height="150"></canvas>
+            <div class="p-4 flex-1 bg-gray-100 flex justify-center items-center h-64 sm:h-80 w-full">
+                <canvas id="sig-canvas" class="bg-white border-2 border-dashed border-gray-400 rounded shadow-inner w-full h-full touch-none"></canvas>
             </div>
             <div class="p-4 bg-white border-t flex gap-3">
                 <button onclick="clearSignature()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"><i class="fas fa-eraser mr-1"></i>清除</button>
@@ -79,7 +75,6 @@
         </div>
     </div>
 
-    <!-- 暫存進度 Modal -->
     <div id="temp-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
             <div class="bg-amber-500 p-4 text-white flex justify-between items-center">
@@ -87,7 +82,6 @@
                 <button onclick="closeModal('temp-modal')"><i class="fas fa-times"></i></button>
             </div>
             <div class="p-6">
-                <!-- 暫存登記人採用完整名單 -->
                 <label class="block text-sm font-bold text-gray-700 mb-2">登記人員姓名 <span class="text-red-500">*</span></label>
                 <select id="registrar-name" class="w-full p-3 border rounded-xl mb-4 outline-none focus:ring-2 focus:ring-amber-500">
                     <option value="">-- 請選擇您的姓名 --</option>
@@ -121,7 +115,6 @@
         </div>
     </div>
 
-    <!-- 正式上傳 Modal -->
     <div id="submit-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
             <div class="bg-green-600 p-4 text-white flex justify-between items-center">
@@ -151,7 +144,6 @@
         </div>
     </div>
 
-    <!-- 頂部 Header -->
     <header class="bg-white shadow-sm sticky top-0 z-50 p-4">
         <div class="max-w-6xl mx-auto flex justify-between items-center">
             <h1 class="font-bold text-xl text-gray-800 flex items-center"><i class="fas fa-mobile-alt mr-2 text-blue-600"></i>手機盤點 V3.11</h1>
@@ -164,7 +156,6 @@
     </header>
 
     <main class="max-w-6xl mx-auto p-4">
-        <!-- 頂部資訊卡 -->
         <div class="bg-white p-5 rounded-2xl shadow-sm border mb-6">
             <div class="flex flex-col md:flex-row md:items-end gap-6 mb-4">
                 <div>
@@ -178,7 +169,6 @@
             </div>
             
             <div class="w-full">
-                <!-- 搜尋功能欄位 -->
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                         <i class="fas fa-search"></i>
@@ -205,7 +195,6 @@
 
         <div id="grid-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
         
-        <!-- 當搜尋不到結果時顯示 -->
         <div id="no-result" class="hidden py-20 text-center">
             <i class="fas fa-search-minus text-4xl text-gray-300 mb-4"></i>
             <p class="text-gray-500">找不到符合條件的手機</p>
@@ -219,15 +208,15 @@
 
     <script>
         const DEFAULT_API = "https://script.google.com/macros/s/AKfycbxVckmqcb0HYPzqiTUrmXS4_Zc0NDXhXTCik-oaLx5s1soPkuFDxu8UoVsfjiUVyDdG/exec";
-        const DEFAULT_UNITS = ["機櫃", "中班", "GMO", "評測", "M舞", "SA", "晚班", "OLD_TS", "OLD_網頁", "OLD_RD5", "OLD_RD4", "OLD_RD3", "OLD_RD2", "OLD_RD1", "OLD_OPO", "ACD_RD6", "ACD_RD5", "ACD_RD4", "ACD_RD3", "ACD_RD2", "ACD_RD1", "MKT", "MIS", "資源應用整合組", "報廢", "送修"];
+        const DEFAULT_UNITS = [];
         
         let rawData = [];
         let availableUnits = []; 
         let currentTab = 'all';
         let searchQuery = '';
         let cloudInitialMap = {};
+        let employeeData = []; 
 
-        // 簽名板相關變數
         let canvas, ctx;
         let isDrawing = false;
         let currentSignTarget = null; 
@@ -236,7 +225,81 @@
             initApiUrl();
             fetchData();
             initCanvas();
+            fetchEmployeeData(); 
         };
+
+        async function fetchEmployeeData() {
+            // 將原本的 gid=0 改為 sheet=信箱，指定抓取信箱分頁
+            const sheetUrl = "https://docs.google.com/spreadsheets/d/17DSL6gnK3v4GvA8xCRZ82Dzg9tXQx4yVRJfIpDhSWMs/gviz/tq?tqx=out:csv&sheet=信箱";
+            try {
+                const res = await fetch(sheetUrl);
+                let text = await res.text();
+                
+                // --- 新增的除錯邏輯 ---
+                if (text.trim().startsWith('<!DOCTYPE html>') || text.trim().startsWith('<html')) {
+                    console.error("❌ 抓取失敗：讀取到網頁原始碼，請檢查 Google Sheet 權限是否設為「知道連結的人皆可查看」。");
+                    showMessage("系統提示", "無法讀取分機表，請確認 Google Sheet 權限！", null, true);
+                    return;
+                }
+                // ---------------------
+
+                employeeData = parseCSV(text);
+                
+                // --- 新增的除錯邏輯 ---
+                if (employeeData && employeeData.length > 0) {
+                    console.log("✅ 成功抓取員工資料，共", employeeData.length, "筆");
+                    console.log("🔍 第一筆資料的欄位名稱長這樣：", Object.keys(employeeData[0]));
+                } else {
+                    console.warn("⚠️ 抓到資料，但是解析出來是空的");
+                }
+                // ---------------------
+
+            } catch (e) {
+                console.warn("無法取得員工分機資料", e);
+            }
+        }
+
+        function parseCSV(text) {
+            text = text.replace(/^\uFEFF/, ''); 
+            let rows = [];
+            let row = [];
+            let curr = '';
+            let inQuotes = false;
+            for (let i = 0; i < text.length; i++) {
+                let c = text[i];
+                if (c === '"' && text[i+1] === '"') {
+                    curr += '"';
+                    i++;
+                } else if (c === '"') {
+                    inQuotes = !inQuotes;
+                } else if (c === ',' && !inQuotes) {
+                    row.push(curr.trim());
+                    curr = '';
+                } else if (c === '\n' && !inQuotes) {
+                    row.push(curr.trim());
+                    rows.push(row);
+                    row = [];
+                    curr = '';
+                } else if (c !== '\r') {
+                    curr += c;
+                }
+            }
+            if (curr !== '' || text[text.length-1] === ',') row.push(curr.trim());
+            if (row.length > 0) rows.push(row);
+            
+            if (rows.length < 2) return [];
+            const headers = rows[0];
+            const data = [];
+            for (let i = 1; i < rows.length; i++) {
+                // 新增 _raw 屬性，保留原始陣列以支援直接透過 A,B,C,D 欄位位置抓資料
+                let obj = { _raw: rows[i] };
+                for (let j = 0; j < headers.length; j++) {
+                    if (headers[j]) obj[headers[j]] = rows[i][j];
+                }
+                data.push(obj);
+            }
+            return data;
+        }
 
         function initApiUrl() {
             const savedUrl = localStorage.getItem('inventory_api_url');
@@ -276,7 +339,6 @@
                 
                 const data = await res.json();
                 
-                // ★ 防呆備份：暫存本地已經記錄的登記人，避免後端延遲導致名字消失
                 const localRegistrars = {};
                 rawData.forEach(p => { if(p.registrar) localRegistrars[p.id] = p.registrar; });
 
@@ -292,8 +354,13 @@
                 
                 cloudInitialMap = {};
                 rawData.forEach(p => {
+                    // [新增邏輯] 若從雲端讀取到已暫存為「歸還」的手機，自動轉回「未盤點」的白底初始狀態，讓下一個登入的人看到乾淨的畫面
+                    if (p.borrow_unit === '歸還') {
+                        p.borrow_unit = '未盤點';
+                        delete p.return_user;
+                    }
+
                     cloudInitialMap[p.id] = (p.borrow_unit || "未盤點").trim();
-                    // ★ 如果後端沒抓到人名，但網頁剛剛已經記住了，就補回去
                     if (!p.registrar && localRegistrars[p.id]) {
                         p.registrar = localRegistrars[p.id];
                     }
@@ -329,12 +396,47 @@
 
         function getPos(e) {
             const rect = canvas.getBoundingClientRect();
-            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+            // 處理觸控事件或滑鼠事件的座標差異
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            return { x: clientX - rect.left, y: clientY - rect.top };
         }
         function startDrawing(e) { isDrawing = true; const pos = getPos(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); }
         function draw(e) { if (!isDrawing) return; const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke(); }
         function stopDrawing() { isDrawing = false; }
         function clearSignature() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+
+        function resizeSignatureCanvas() {
+            if (canvas.offsetWidth === 0) return;
+            // 讓畫布的內部座標系與外部 CSS 顯示大小完全同步，確保畫線不偏移、不模糊
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            ctx.lineWidth = 3;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#000';
+        }
+
+        function openSignatureModal() {
+            document.getElementById('signature-modal').classList.remove('hidden');
+            // 給瀏覽器一點點時間渲染容器，再進行尺寸計算與重置
+            setTimeout(() => {
+                resizeSignatureCanvas();
+                clearSignature();
+            }, 50);
+        }
+
+        // 新增觸發簽名的專屬函式
+        function triggerSign(id) {
+            const p = rawData.find(x => x.id === id);
+            const inputEl = document.getElementById(`ext-input-${id}`);
+            const ext = inputEl ? inputEl.value.trim() : (p.extension || '').trim();
+            
+            if (!ext) {
+                return showMessage("提醒", "請先輸入分機號碼再進行簽名！", null, true);
+            }
+            setExtensionAndSign(id, ext);
+        }
 
         function setUnit(id, unit) {
             if (!unit) return; 
@@ -343,10 +445,125 @@
             if (!isReturn) {
                 updateLocalData(id, unit, null);
                 currentSignTarget = { id: id, unit: unit };
-                clearSignature();
-                document.getElementById('signature-modal').classList.remove('hidden');
+                openSignatureModal();
             } else {
                 updateLocalData(id, unit, null);
+            }
+        }
+
+        function setExtensionAndSign(id, ext) {
+            if (!ext) return; 
+            
+            const p = rawData.find(x => x.id === id);
+            p.extension = ext;
+            
+            let emp = null;
+            if (employeeData && employeeData.length > 0) {
+                emp = employeeData.find(e => {
+                    // 優先使用 F 欄位 (index 5) 作為分機號碼比對
+                    if (e._raw && e._raw[5] && e._raw[5].toString().trim() === ext.trim()) {
+                        return true;
+                    }
+                    // 備用：表頭關鍵字比對
+                    for (let key in e) {
+                        if (key === '_raw') continue;
+                        if (key && (key.includes('分機') || key.toLowerCase().includes('ext') || key.includes('電話')) && e[key] && e[key].toString().trim() === ext.trim()) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+            }
+
+            let currentUnit = p.borrow_unit;
+
+            if (emp) {
+                let rawName = '';
+                
+                // 強制抓取 E 欄位 (index 4) 作為借用人姓名
+                if (emp._raw && emp._raw[4]) {
+                    rawName = emp._raw[4].toString().trim();
+                }
+
+                // 若 E 欄位剛好是空的，退回使用表頭關鍵字尋找
+                if (!rawName) {
+                    let bestMatchScore = -1;
+                    const nameKeywords = [
+                        { kw: '姓名', score: 10 }, { kw: '中文', score: 9 }, { kw: '名稱', score: 8 },
+                        { kw: 'name', score: 7 }, { kw: '員工', score: 6 }, { kw: '人員', score: 5 },
+                        { kw: '使用者', score: 4 }, { kw: 'user', score: 3 }, { kw: 'account', score: 2 }
+                    ];
+
+                    for (let key in emp) {
+                        if (key === '_raw') continue;
+                        let kLower = key.toLowerCase();
+                        let val = emp[key] != null ? String(emp[key]).trim() : '';
+                        if (val === '') continue;
+
+                        for (let item of nameKeywords) {
+                            if (kLower.includes(item.kw) && item.score > bestMatchScore) {
+                                rawName = val;
+                                bestMatchScore = item.score;
+                            }
+                        }
+                    }
+                }
+                
+                if (rawName !== '') {
+                    // 移除常見職稱與英文名字，確保只保留中文名
+                    let cleanName = rawName.split(' ')[0].replace(/(先生|小姐|經理|主任|組長|副理|處長|工程師|管理師|專員|高專).*$/, '').trim();
+                    p.borrower = cleanName !== '' ? cleanName : rawName;
+                } else {
+                    p.borrower = ""; 
+                }
+
+                let dept = '';
+                let group = '';
+                
+                // 強制抓取 C 欄位 (index 2) 作為部門單位
+                if (emp._raw && emp._raw[2]) {
+                    dept = emp._raw[2].toString().trim();
+                }
+
+                // 若 C 欄位無資料，退回使用表頭關鍵字尋找
+                if (!dept) {
+                    for (let key in emp) {
+                        if (key === '_raw') continue;
+                        let kLower = key.toLowerCase();
+                        if (kLower === '部門' || kLower.includes('部門') || kLower.includes('dept')) dept = emp[key];
+                        if (kLower === '組' || kLower.includes('組別') || kLower.includes('group')) group = emp[key];
+                    }
+                }
+                
+                let targetUnit = dept;
+                if (targetUnit) {
+                    currentUnit = targetUnit;
+                } else {
+                    if (!currentUnit || currentUnit === "未盤點" || currentUnit === "機櫃" || currentUnit === "中班") {
+                        currentUnit = "出借";
+                    }
+                }
+
+                p.borrow_unit = currentUnit;
+                render(); 
+
+                currentSignTarget = { id: id, unit: currentUnit };
+                openSignatureModal();
+
+            } else {
+                p.borrower = "查無資訊";
+                
+                if (!currentUnit || currentUnit === "未盤點" || currentUnit === "機櫃" || currentUnit === "中班") {
+                    currentUnit = "出借";
+                }
+                
+                p.borrow_unit = currentUnit;
+                render(); 
+                
+                showMessage("查無資訊", `分機號碼 ${ext} 查無對應的人員資料！\n請確認分機是否輸入錯誤。`, () => {
+                    currentSignTarget = { id: id, unit: currentUnit };
+                    openSignatureModal();
+                }, true);
             }
         }
 
@@ -385,6 +602,17 @@
 
         function triggerReturn(id) {
             const p = rawData.find(x => x.id === id);
+            
+            // 防呆檢查：確認出借的必要資料是否都有內容
+            const hasExtension = p.extension && p.extension.trim() !== '';
+            const hasBorrower = p.borrower && p.borrower.trim() !== '';
+            // 若單位為預設的"出借"也視同未填寫實際單位
+            const hasUnit = p.borrow_unit && p.borrow_unit.trim() !== '' && p.borrow_unit !== '出借';
+
+            if (!hasExtension || !hasBorrower || !hasUnit) {
+                return showMessage("無法歸還", "此手機的出借資料（分機、借用人、出借單位）不完整！\n請先填入分機帶入資料，或手動補齊資訊後，再執行歸還操作。", null, true);
+            }
+
             p._isReturning = true; 
             render();
             setTimeout(() => {
@@ -406,10 +634,17 @@
             
             const p = rawData.find(x => x.id === id);
             delete p._isReturning;
+            
+            // 歸還後自動清空出借時的殘留資料，確保乾淨回到初始狀態
+            delete p.borrower;
+            delete p.extension;
+            delete p.charger;
+            delete p.lender;
+            delete p.signature;
+            
             updateLocalData(id, "歸還", null, val);
         }
 
-        // 搜尋邏輯
         function handleSearch(val) {
             searchQuery = val.trim().toLowerCase();
             const clearBtn = document.getElementById('clear-search');
@@ -428,7 +663,6 @@
             render();
         }
 
-        // 一鍵抓漏邏輯
         function checkMissingPeople() {
             const TEAM_MEMBERS = [
                 "許昕慈", "簡伶珊", "許庭瑊", "彭毓雯", "王溶蓁", 
@@ -439,7 +673,8 @@
 
             const registeredUsers = new Set();
             rawData.forEach(p => {
-                if (p.registrar) {
+                // 【修改重點】只有當手機狀態是「機櫃」或「中班」時，才認定該登記人有實際執行「盤點」
+                if (p.registrar && (p.borrow_unit === '機櫃' || p.borrow_unit === '中班')) {
                     registeredUsers.add(p.registrar);
                 }
             });
@@ -468,16 +703,14 @@
                 const id = p.id;
                 const unit = (p.borrow_unit || "未盤點").trim();
                 let status = 'neutral';
-                let isKnownUnit = availableUnits.includes(unit);
 
                 if (unit === '機櫃') status = 'cabinet';
                 else if (unit === '中班') status = 'mid';
-                else if (unit === '出借' || (isKnownUnit && unit !== '歸還')) status = 'borrowed';
                 else if (unit === '歸還') status = 'returned';
+                else if (unit !== '未盤點') status = 'borrowed';
 
                 if (status === 'neutral' || unit === '出借') missingIds.push(id);
 
-                // 組合過濾條件：分頁標籤 + 搜尋文字
                 let isTabShow = (currentTab === 'all') || 
                                 (currentTab === 'un' && (status === 'neutral' || unit === '出借')) || 
                                 (id.startsWith(currentTab));
@@ -508,9 +741,9 @@
                             <div class="mb-2">
                                 <label class="text-xs font-bold text-gray-500">歸還確認人員：</label>
                                 <div class="flex gap-2 mt-1">
-                                    <input type="text" id="return-input-${id}" class="w-full p-2 border rounded text-sm" placeholder="輸入姓名">
-                                    <button onclick="confirmReturn('${id}')" class="bg-purple-600 text-white px-3 rounded text-xs">確認</button>
-                                    <button onclick="cancelReturn('${id}')" class="bg-gray-300 text-gray-700 px-2 rounded text-xs"><i class="fas fa-times"></i></button>
+                                    <input type="text" id="return-input-${id}" class="flex-1 min-w-0 p-2 border rounded text-sm" placeholder="輸入姓名">
+                                    <button onclick="confirmReturn('${id}')" class="shrink-0 bg-purple-600 text-white px-3 rounded text-xs">確認</button>
+                                    <button onclick="cancelReturn('${id}')" class="shrink-0 bg-gray-300 text-gray-700 px-2 rounded text-xs"><i class="fas fa-times"></i></button>
                                 </div>
                             </div>
                         `;
@@ -521,41 +754,43 @@
                         let detailInputs = '';
                         if (status === 'borrowed') {
                             detailInputs = `
-                                <div class="mt-2 pt-2 border-t border-blue-200">
+                                <div class="mt-2 pt-2 border-t border-blue-200 w-full overflow-hidden">
                                     <div class="mb-2">
                                         <label class="block text-[10px] text-gray-500 font-bold mb-0.5">借用人</label>
-                                        <input type="text" value="${p.borrower || ''}" oninput="updateDetail('${id}', 'borrower', this.value)" class="detail-input">
+                                        <input type="text" value="${p.borrower || ''}" oninput="updateDetail('${id}', 'borrower', this.value)" class="detail-input min-w-0 w-full" placeholder="自動帶入">
                                     </div>
-                                    <div class="flex gap-2 mb-2">
-                                        <div class="flex-1">
-                                            <label class="block text-[10px] text-gray-500 font-bold mb-0.5">分機</label>
-                                            <input type="text" value="${p.extension || ''}" oninput="updateDetail('${id}', 'extension', this.value)" class="detail-input">
+                                    <div class="flex gap-2 mb-2 w-full">
+                                        <div class="flex-1 min-w-0">
+                                            <label class="block text-[10px] text-gray-500 font-bold mb-0.5 truncate">出借單位</label>
+                                            <input type="text" value="${unit !== '出借' ? unit : ''}" oninput="updateDetail('${id}', 'borrow_unit', this.value)" class="detail-input bg-white min-w-0 w-full" placeholder="自動帶入">
                                         </div>
-                                        <div class="flex-1">
-                                            <label class="block text-[10px] text-gray-500 font-bold mb-0.5">出借人員</label>
-                                            <input type="text" value="${p.lender || ''}" oninput="updateDetail('${id}', 'lender', this.value)" class="detail-input">
+                                        <div class="flex-1 min-w-0">
+                                            <label class="block text-[10px] text-gray-500 font-bold mb-0.5 truncate">出借人員</label>
+                                            <input type="text" value="${p.lender || ''}" oninput="updateDetail('${id}', 'lender', this.value)" class="detail-input min-w-0 w-full">
                                         </div>
                                     </div>
-                                    <div class="flex items-center text-xs mt-1">
-                                        <span class="mr-2 text-gray-600 font-bold">借充電器材?</span>
-                                        <label class="mr-2"><input type="radio" name="charger-${id}" value="有" ${p.charger === '有' ? 'checked' : ''} onclick="updateDetail('${id}', 'charger', '有')"> 有</label>
-                                        <label><input type="radio" name="charger-${id}" value="無" ${p.charger === '無' || !p.charger ? 'checked' : ''} onclick="updateDetail('${id}', 'charger', '無')"> 無</label>
+                                    <div class="flex flex-wrap items-center text-xs mt-1">
+                                        <span class="mr-2 text-gray-600 font-bold whitespace-nowrap">借充電器材?</span>
+                                        <label class="mr-2 whitespace-nowrap"><input type="radio" name="charger-${id}" value="有" ${p.charger === '有' ? 'checked' : ''} onclick="updateDetail('${id}', 'charger', '有')"> 有</label>
+                                        <label class="whitespace-nowrap"><input type="radio" name="charger-${id}" value="無" ${p.charger === '無' || !p.charger ? 'checked' : ''} onclick="updateDetail('${id}', 'charger', '無')"> 無</label>
                                     </div>
                                 </div>
                             `;
                         }
 
                         cardContent = `
-                            <div class="flex gap-1 mb-2">
-                                <button onclick="setStatus('${id}', '機櫃')" class="flex-1 py-2 text-xs border rounded-lg transition-colors ${status==='cabinet'?'bg-green-500 text-white font-bold border-green-600':'bg-white text-gray-400 hover:bg-gray-50'}">機櫃</button>
-                                <button onclick="setStatus('${id}', '中班')" class="flex-1 py-2 text-xs border rounded-lg transition-colors ${status==='mid'?'bg-amber-500 text-white font-bold border-amber-600':'bg-white text-gray-400 hover:bg-gray-50'}">中班</button>
-                                <button onclick="setStatus('${id}', '出借')" class="flex-1 py-2 text-xs border rounded-lg transition-colors ${status==='borrowed'?'bg-blue-500 text-white font-bold border-blue-600':'bg-white text-gray-400 hover:bg-gray-50'}">出借</button>
+                            <div class="flex gap-1 mb-2 w-full">
+                                <button onclick="setStatus('${id}', '機櫃')" class="flex-1 min-w-0 py-2 text-xs border rounded-lg transition-colors ${status==='cabinet'?'bg-green-500 text-white font-bold border-green-600':'bg-white text-gray-400 hover:bg-gray-50'}">機櫃</button>
+                                <button onclick="setStatus('${id}', '中班')" class="flex-1 min-w-0 py-2 text-xs border rounded-lg transition-colors ${status==='mid'?'bg-amber-500 text-white font-bold border-amber-600':'bg-white text-gray-400 hover:bg-gray-50'}">中班</button>
+                                <button onclick="setStatus('${id}', '出借')" class="flex-1 min-w-0 py-2 text-xs border rounded-lg transition-colors ${status==='borrowed'?'bg-blue-500 text-white font-bold border-blue-600':'bg-white text-gray-400 hover:bg-gray-50'}">出借</button>
                             </div>
-                            ${returnBtn ? `<div class="mb-2 flex">${returnBtn}</div>` : ''}
-                            <select onchange="setUnit('${id}', this.value)" class="w-full p-2 text-xs border rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-400 ${status==='borrowed'?'':'hidden'}">
-                                <option value="">-- 必選出借單位 --</option>
-                                ${availableUnits.map(u => `<option value="${u}" ${unit===u?'selected':''}>${u}</option>`).join('')}
-                            </select>
+                            ${returnBtn ? `<div class="mb-2 flex w-full">${returnBtn}</div>` : ''}
+                            
+                            <div class="flex gap-2 items-center w-full ${status==='borrowed'?'':'hidden'}">
+                                <input type="text" id="ext-input-${id}" placeholder="-- 必填分機 --" value="${p.extension || ''}" oninput="updateDetail('${id}', 'extension', this.value)" class="flex-1 min-w-0 p-2 text-xs border rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-400">
+                                <button onclick="triggerSign('${id}')" class="shrink-0 bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-bold shadow hover:bg-blue-700 whitespace-nowrap"><i class="fas fa-pen-nib mr-1"></i>簽名</button>
+                            </div>
+                            
                             ${detailInputs}
                         `;
                     }
@@ -575,7 +810,6 @@
                 }
             });
 
-            // 處理查無結果的顯示
             if (shownCount === 0) {
                 noResultEl.classList.remove('hidden');
             } else {
@@ -594,7 +828,6 @@
                         target.classList.add('ring-4', 'ring-red-300');
                         setTimeout(() => target.classList.remove('ring-4', 'ring-red-300'), 2000);
                     } else {
-                        // 如果該卡片被隱藏了，切換回全部並重新搜尋
                         clearSearch();
                         switchTab('all', document.querySelector('.tab-btn'));
                         setTimeout(() => {
@@ -619,11 +852,17 @@
                 delete p.lender;
             }
 
-            if (p.borrow_unit === s || (s === '出借' && availableUnits.includes(p.borrow_unit))) {
+            if (p.borrow_unit === s || (s === '出借' && !["未盤點", "機櫃", "中班", "歸還"].includes(p.borrow_unit))) {
                 p.borrow_unit = "未盤點";
             } else {
                 p.borrow_unit = s;
             }
+
+            // 若使用者將這台手機從「歸還」點回「中班」或「機櫃」，也同步清掉殘留的歸還人資訊
+            if (p.borrow_unit !== '歸還') {
+                delete p.return_user;
+            }
+            
             render();
         }
 
@@ -635,9 +874,12 @@
         }
 
         function validate() {
-            const invalid = rawData.filter(p => p.borrow_unit === "出借");
+            const invalid = rawData.filter(p => {
+                const isBorrowed = !["未盤點", "機櫃", "中班", "歸還"].includes(p.borrow_unit);
+                return isBorrowed && (!p.extension || p.extension.trim() === "");
+            });
             if(invalid.length > 0) {
-                showMessage("資料錯誤", `以下手機已選「出借」但未選擇單位：\n${invalid.map(x=>x.id).join(', ')}`, null, true);
+                showMessage("資料錯誤", `以下手機已選「出借」，但未填寫「分機」：\n${invalid.map(x=>x.id).join(', ')}`, null, true);
                 return false;
             }
             return true;
@@ -722,7 +964,6 @@
                 document.getElementById('loading-overlay').style.display = 'none';
                 inventory.forEach(item => { 
                     cloudInitialMap[item.id] = item.status;
-                    // 將當前登錄者名稱暫存至前端資料，以便重整前依然可判斷
                     const p = rawData.find(x => x.id === item.id);
                     if(p) p.registrar = name; 
                 });
@@ -736,7 +977,6 @@
             }
         }
 
-        // 修改後的 trySubmitFinal 函式：檢查未盤點，並改為觸發 submit-modal
         function trySubmitFinal() {
             if(!validate()) return;
 
@@ -753,11 +993,9 @@
                 return;
             }
 
-            // 開啟正式上傳專用的 Modal
             document.getElementById('submit-modal').classList.remove('hidden');
         }
 
-        // 新增：處理 submit-modal 的確認按鈕
         function confirmSubmitFinal() {
             const name = document.getElementById('submit-main-user').value;
             if(!name) return showMessage("錯誤", "請選取「正式上傳的主責盤點人員」！", null, true);
@@ -766,7 +1004,6 @@
             executeFinalSubmit(name);
         }
 
-        // 修改：接收 name 參數來進行上傳
         async function executeFinalSubmit(name) {
             const btn = document.getElementById('submit-btn');
             btn.disabled = true;
