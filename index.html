@@ -531,7 +531,9 @@
                     delete p._isInventoried; // 取代掉會造成誤判的 _modified
                     delete p._dataChanged; 
                     
-                    if (!p.borrow_unit || p.borrow_unit.trim() === '') {
+                    // 【關鍵修正】：加上 p.borrow_unit.trim() === '未盤點'
+                    // 因為後端每天會重置為「未盤點」，前端接收到後，只要發現是 C 或 O 系列，就強制把它蓋成「機櫃」
+                    if (!p.borrow_unit || p.borrow_unit.trim() === '' || p.borrow_unit.trim() === '未盤點') {
                         p.borrow_unit = getDefaultStatus(p.id);
                     }
                     
@@ -540,7 +542,7 @@
                         p.borrow_unit = getDefaultStatus(p.id); 
                         delete p.return_user; 
                         
-                        // 【關鍵修正 1】：既然是「歸還自動變成機櫃的」，這不算是一次「盤點確認動作」
+                        // 既然是「歸還自動變成機櫃的」，這不算是一次「盤點確認動作」
                         // 所以必須拔除這個人的名字，避免他無辜賺到盤點業績
                         delete p.registrar; 
                     }
