@@ -28,6 +28,11 @@
     <div class="fixed top-0 inset-x-0 h-14 bg-gray-900 z-[10000] flex items-center justify-center gap-4 shadow-md">
         <button onclick="switchMainTab('inventory')" id="main-tab-inv" class="px-6 py-2 rounded-full bg-blue-600 text-white font-bold transition-all shadow-lg">手機盤點系統</button>
         <button onclick="switchMainTab('overview')" id="main-tab-over" class="px-6 py-2 rounded-full bg-gray-700 text-gray-300 font-bold transition-all hover:bg-gray-600">裝置狀態總覽</button>
+        
+        <a href="https://docs.google.com/document/d/11_PaC36J_IkBtCujeUQdoV6vuCALMZYvTN7DhtuuqFU/edit?usp=sharing" target="_blank" class="absolute right-4 flex items-center gap-1.5 text-gray-300 hover:text-white text-sm font-medium transition-colors" title="查看系統說明書">
+            <i class="fas fa-book-open"></i>
+            <span class="hidden sm:inline">系統說明書</span>
+        </a>
     </div>
 
     <div id="app-inventory" style="padding-top: 56px; padding-bottom: 140px; background-color: #f3f4f6; min-height: 100vh;">
@@ -135,6 +140,13 @@
                         2. 清空所有的「暫存紀錄」。<br>
                         3. 更新出借狀態與簽名。
                     </p>
+                    
+                    <div class="mb-5 bg-blue-50 border border-blue-100 rounded-lg p-3 flex justify-center">
+                        <a href="https://docs.google.com/spreadsheets/d/1LsuBSpaKrnXN6GKM-6AFMbA9T286_TK3u9sQ9bzl2Pc/edit?usp=sharing" target="_blank" class="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-2 transition-colors">
+                            <i class="fas fa-table"></i> 點擊開啟後端資料表 (Google Sheets)
+                        </a>
+                    </div>
+
                     <label class="block text-sm font-bold text-gray-700 mb-2">主責盤點人員 <span class="text-red-500">*</span></label>
                     <select id="submit-main-user" class="w-full p-3 bg-gray-50 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-green-500 mb-6">
                         <option value="">-- 請選取正式上傳的主責人員 --</option>
@@ -394,7 +406,7 @@
 
     <script>
         /* -------------------------------------------------------------------------- */
-        /* 頂部導覽列切換邏輯                                         */
+        /* 頂部導覽列切換邏輯                                 */
         /* -------------------------------------------------------------------------- */
         function switchMainTab(tab) {
             const btnInv = document.getElementById('main-tab-inv');
@@ -416,7 +428,7 @@
         }
 
         /* ========================================================================== */
-        /* App 1: 手機盤點 JS 邏輯                                  */
+        /* App 1: 手機盤點 JS 邏輯                          */
         /* ========================================================================== */
         const DEFAULT_API = "https://script.google.com/macros/s/AKfycbxVckmqcb0HYPzqiTUrmXS4_Zc0NDXhXTCik-oaLx5s1soPkuFDxu8UoVsfjiUVyDdG/exec";
         const DEFAULT_UNITS = [];
@@ -491,6 +503,10 @@
             document.getElementById('settings-arrow').classList.toggle('rotate-180');
         }
 
+        function getDefaultStatus(id) {
+            return (id.startsWith('C') || id.startsWith('O')) ? '機櫃' : '未盤點';
+        }
+
         async function fetchData() {
             document.getElementById('inv-loading-overlay').style.display = 'flex';
             document.getElementById('inv-loading-text').innerText = '同步雲端資料中...';
@@ -512,8 +528,23 @@
                 
                 cloudInitialMap = {};
                 rawData.forEach(p => {
-                    if (p.borrow_unit === '歸還') { p.borrow_unit = '未盤點'; delete p.return_user; }
-                    cloudInitialMap[p.id] = (p.borrow_unit || "未盤點").trim();
+                    delete p._isInventoried; // 取代掉會造成誤判的 _modified
+                    delete p._dataChanged; 
+                    
+                    if (!p.borrow_unit || p.borrow_unit.trim() === '') {
+                        p.borrow_unit = getDefaultStatus(p.id);
+                    }
+                    
+                    // 歸還後自動退回預設狀態 (C/O自動回機櫃)
+                    if (p.borrow_unit === '歸還') { 
+                        p.borrow_unit = getDefaultStatus(p.id); 
+                        delete p.return_user; 
+                        
+                        // 【關鍵修正 1】：既然是「歸還自動變成機櫃的」，這不算是一次「盤點確認動作」
+                        // 所以必須拔除這個人的名字，避免他無辜賺到盤點業績
+                        delete p.registrar; 
+                    }
+                    cloudInitialMap[p.id] = p.borrow_unit.trim();
                     if (!p.registrar && localRegistrars[p.id]) { p.registrar = localRegistrars[p.id]; }
                 });
                 renderInv();
@@ -636,27 +667,38 @@
         }
         function closeSignatureModal(saved) {
             document.getElementById('signature-modal').classList.add('hidden');
-            if (!saved && currentSignTarget) updateLocalData(currentSignTarget.id, "未盤點", null);
+            if (!saved && currentSignTarget) updateLocalData(currentSignTarget.id, getDefaultStatus(currentSignTarget.id), null);
             currentSignTarget = null;
         }
         function updateLocalData(id, unit, signature, returnUser) {
             const p = rawData.find(x => x.id === id);
             p.borrow_unit = unit || "出借";
-            if(signature) p.signature = signature; else if (unit === "機櫃" || unit === "中班" || unit === "歸還") delete p.signature;
-            if(returnUser) p.return_user = returnUser; else delete p.return_user;
+            if(signature) { p.signature = signature; p._dataChanged = true; } 
+            else if (unit === "機櫃" || unit === "中班" || unit === "歸還") delete p.signature;
+            if(returnUser) { p.return_user = returnUser; p._dataChanged = true; } 
+            else delete p.return_user;
             renderInv();
         }
-        function updateDetail(id, field, value) { const p = rawData.find(x => x.id === id); p[field] = value; }
+        function updateDetail(id, field, value) { 
+            const p = rawData.find(x => x.id === id); 
+            p[field] = value; 
+            p._dataChanged = true; 
+        }
         function triggerReturn(id) {
             const p = rawData.find(x => x.id === id);
             const hasExtension = p.extension && p.extension.trim() !== '';
             const hasBorrower = p.borrower && p.borrower.trim() !== '';
             const hasUnit = p.borrow_unit && p.borrow_unit.trim() !== '' && p.borrow_unit !== '出借';
             if (!hasExtension || !hasBorrower || !hasUnit) return showMessage("無法歸還", "此手機的出借資料（分機、借用人、出借單位）不完整！\n請先填入分機帶入資料，或手動補齊資訊後，再執行歸還操作。", null, true);
-            p._isReturning = true; renderInv();
+            p._isReturning = true; 
+            renderInv();
             setTimeout(() => { const input = document.getElementById(`return-input-${id}`); if(input) input.focus(); }, 100);
         }
-        function cancelReturn(id) { const p = rawData.find(x => x.id === id); delete p._isReturning; renderInv(); }
+        function cancelReturn(id) { 
+            const p = rawData.find(x => x.id === id); 
+            delete p._isReturning; 
+            renderInv(); 
+        }
         function confirmReturn(id) {
             const input = document.getElementById(`return-input-${id}`); const val = input.value.trim();
             if(!val) return showMessage("提醒", "請輸入確認人員姓名！", null, true);
@@ -689,7 +731,10 @@
             let shownCount = 0;
 
             rawData.forEach(p => {
-                const id = p.id; const unit = (p.borrow_unit || "未盤點").trim(); let status = 'neutral';
+                const id = p.id; 
+                const unit = (p.borrow_unit || getDefaultStatus(id)).trim(); 
+                let status = 'neutral';
+                
                 if (unit === '機櫃') status = 'cabinet'; else if (unit === '中班') status = 'mid'; else if (unit === '歸還') status = 'returned'; else if (unit !== '未盤點') status = 'borrowed';
                 if (status === 'neutral' || unit === '出借') missingIds.push(id);
                 let isTabShow = (currentTab === 'all') || (currentTab === 'un' && (status === 'neutral' || unit === '出借')) || (id.startsWith(currentTab));
@@ -788,17 +833,35 @@
 
         function setStatus(id, s) {
             const p = rawData.find(x => x.id === id);
-            if (s === '機櫃' || s === '中班') { delete p.signature; delete p.return_user; delete p._isReturning; delete p.borrower; delete p.extension; delete p.charger; delete p.lender; }
-            if (p.borrow_unit === s || (s === '出借' && !["未盤點", "機櫃", "中班", "歸還"].includes(p.borrow_unit))) p.borrow_unit = "未盤點"; else p.borrow_unit = s;
+            const defStatus = getDefaultStatus(id);
+            
+            if (s === '機櫃' || s === '中班') { 
+                delete p.signature; delete p.return_user; delete p._isReturning; delete p.borrower; delete p.extension; delete p.charger; delete p.lender; 
+                // 【關鍵修正 2】：只有明確點選「機櫃」或「中班」，才算是一次真正的盤點動作
+                p._isInventoried = true; 
+            } else {
+                delete p._isInventoried;
+            }
+            
+            // 取消選取時，退回該系列專屬的預設狀態
+            if (p.borrow_unit === s || (s === '出借' && !["未盤點", "機櫃", "中班", "歸還"].includes(p.borrow_unit))) {
+                p.borrow_unit = defStatus; 
+                delete p._isInventoried; // 取消操作，拔除盤點業績
+            } else {
+                p.borrow_unit = s; 
+            }
+            
             if (p.borrow_unit !== '歸還') delete p.return_user;
             renderInv();
         }
+        
         function switchInvTab(t, b) {
             currentTab = t;
             document.querySelectorAll('#app-inventory .tab-btn').forEach(x => { x.classList.remove('tab-active'); x.classList.add('text-gray-500'); });
             b.classList.add('tab-active'); b.classList.remove('text-gray-500');
             renderInv();
         }
+        
         function validate() {
             const invalid = rawData.filter(p => { const isBorrowed = !["未盤點", "機櫃", "中班", "歸還"].includes(p.borrow_unit); return isBorrowed && (!p.extension || p.extension.trim() === ""); });
             if(invalid.length > 0) { showMessage("資料錯誤", `以下手機已選「出借」，但未填寫「分機」：\n${invalid.map(x=>x.id).join(', ')}`, null, true); return false; }
@@ -807,7 +870,9 @@
 
         async function openTempModal() {
             if(!validate()) return;
-            const localChanges = rawData.filter(p => p.borrow_unit !== cloudInitialMap[p.id]);
+            
+            // 【關鍵修正 3】：將過濾條件改為更精準的三種：有實質改變狀態 / 明確點擊盤點 / 偷改過文字細節
+            const localChanges = rawData.filter(p => p.borrow_unit !== cloudInitialMap[p.id] || p._isInventoried || p._dataChanged);
             if(localChanges.length === 0) return showMessage('提示', "資料與雲端一致，無需暫存。");
 
             const loadingOverlay = document.getElementById('inv-loading-overlay'); const loadingText = document.getElementById('inv-loading-text');
@@ -816,11 +881,11 @@
                 const API = getApiUrl(); const res = await fetch(`${API}?t=${Date.now()}`);
                 if(!res.ok) throw new Error("Network error");
                 const data = await res.json(); let freshData = Array.isArray(data) ? data : (data.inventory || []);
-                const freshMap = {}; freshData.forEach(p => freshMap[p.id] = (p.borrow_unit || "未盤點").trim());
+                const freshMap = {}; freshData.forEach(p => freshMap[p.id] = (p.borrow_unit || getDefaultStatus(p.id)).trim());
                 const conflicts = [];
                 localChanges.forEach(change => {
                     const freshStatus = freshMap[change.id]; const initialStatus = cloudInitialMap[change.id];
-                    if (freshStatus !== initialStatus && freshStatus !== "未盤點") conflicts.push(`• ${change.id} (已被變更為: ${freshStatus})`);
+                    if (freshStatus !== initialStatus && freshStatus !== getDefaultStatus(change.id)) conflicts.push(`• ${change.id} (已被變更為: ${freshStatus})`);
                 });
                 loadingOverlay.style.display = 'none';
                 if (conflicts.length > 0) return showMessage("❌ 資料衝突警告", "暫存區已有該編號(手機)資料，請再次確認！\n\n以下手機已被其他人更新：\n" + conflicts.join('\n'), null, true);
@@ -828,26 +893,41 @@
                 document.getElementById('temp-modal').classList.remove('hidden');
             } catch(e) { loadingOverlay.style.display = 'none'; showMessage('檢查失敗', "無法連接雲端檢查衝突(網路錯誤)。" + e.message, null, true); }
         }
+        
         function closeInvModal(id) { document.getElementById(id).classList.add('hidden'); }
+        
         async function confirmSave() {
             const name = document.getElementById('registrar-name').value.trim();
             if(!name) return showMessage('錯誤', "請選擇登記姓名！", null, true);
             const btn = document.getElementById('save-btn'); btn.disabled = true; btn.innerText = "儲存中...";
             document.getElementById('inv-loading-overlay').style.display = 'flex'; document.getElementById('inv-loading-text').innerText = '正在寫入暫存區...';
-            const inventory = rawData.filter(p => p.borrow_unit !== cloudInitialMap[p.id]).map(p => ({ id: p.id, status: p.borrow_unit, signature: p.signature, return_user: p.return_user, borrower: p.borrower, extension: p.extension, charger: p.charger, lender: p.lender }));
+            
+            const inventory = rawData.filter(p => p.borrow_unit !== cloudInitialMap[p.id] || p._isInventoried || p._dataChanged).map(p => ({ id: p.id, status: p.borrow_unit, signature: p.signature, return_user: p.return_user, borrower: p.borrower, extension: p.extension, charger: p.charger, lender: p.lender }));
+            
             try {
                 const API = getApiUrl();
                 const fetchPromise = fetch(API, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: "temp_save", registrar: name, inventory: inventory }) });
                 const timeoutPromise = new Promise(resolve => setTimeout(resolve, 3000));
                 await Promise.race([fetchPromise, timeoutPromise]);
                 document.getElementById('inv-loading-overlay').style.display = 'none';
-                inventory.forEach(item => { cloudInitialMap[item.id] = item.status; const p = rawData.find(x => x.id === item.id); if(p) p.registrar = name; });
+                
+                inventory.forEach(item => { 
+                    cloudInitialMap[item.id] = item.status; 
+                    const p = rawData.find(x => x.id === item.id); 
+                    if(p) { 
+                        p.registrar = name; 
+                        delete p._isInventoried; // 儲存成功後清除追蹤標記
+                        delete p._dataChanged; 
+                    } 
+                });
+                
                 closeInvModal('temp-modal'); btn.disabled = false; btn.innerText = "確認儲存"; showMessage("成功", "暫存成功！\n資料已同步至後端。");
             } catch(e) { 
                 document.getElementById('inv-loading-overlay').style.display = 'none';
                 showMessage('錯誤', "寫入失敗(網路錯誤)：" + e, null, true); btn.disabled = false; btn.innerText = "確認儲存"; 
             }
         }
+        
         function trySubmitFinal() {
             if(!validate()) return;
             const uninventoried = rawData.filter(p => !p.borrow_unit || p.borrow_unit === "未盤點");
@@ -885,9 +965,9 @@
         }
 
         /* ========================================================================== */
-        /* App 2: 狀態總覽 JS 邏輯                                  */
+        /* App 2: 狀態總覽 JS 邏輯                          */
         /* ========================================================================== */
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxVckmqcb0HYPzqiTUrmXS4_Zc0NDXhXTCik-oaLx5s1soPkuFDxu8UoVsfjiUVyDdG/exec'; // <--- 在這裡貼上您的 Apps Script Web App 網址
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxVckmqcb0HYPzqiTUrmXS4_Zc0NDXhXTCik-oaLx5s1soPkuFDxu8UoVsfjiUVyDdG/exec'; 
         const SHEET_ID = '1LsuBSpaKrnXN6GKM-6AFMbA9T286_TK3u9sQ9bzl2Pc';
         const URL_DEVICES = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent('手機清單')}&tq=${encodeURIComponent('SELECT A, B, D')}`; 
         const URL_LOANS = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent('出借單位')}&tq=${encodeURIComponent('SELECT A, B, C, E, H')}`;
@@ -1086,12 +1166,7 @@
             const container = document.getElementById('card-container'); container.innerHTML = '';
             if (filteredData.length === 0) { container.innerHTML = `<div class="py-12 text-center text-slate-500 italic bg-white rounded-xl border border-slate-200 shadow-sm">找不到符合條件的裝置資料</div>`; return; }
 
-            // 修改這邊的排序邏輯：將 I 系列置頂，其餘維持字母排序
-            Object.keys(groupedData).sort((a, b) => {
-                if (a === 'I 系列') return -1;
-                if (b === 'I 系列') return 1;
-                return a.localeCompare(b);
-            }).forEach(groupName => {
+            Object.keys(groupedData).sort().forEach(groupName => {
                 const seriesData = groupedData[groupName]; const section = document.createElement('div');
                 section.className = 'bg-slate-50/50 rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm';
                 const indicatorColor = overviewState.filterType === 'testing' ? 'bg-sky-500' : 'bg-blue-500';
@@ -1156,7 +1231,7 @@
         }
 
         /* -------------------------------------------------------------------------- */
-        /* 全局初始化事件 (整合版)                                           */
+        /* 全局初始化事件 (整合版)                               */
         /* -------------------------------------------------------------------------- */
         window.addEventListener('DOMContentLoaded', () => {
             // 初始化 Lucide 圖示
