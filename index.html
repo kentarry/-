@@ -837,9 +837,12 @@
             const p = rawData.find(x => x.id === id);
             const defStatus = getDefaultStatus(id);
             
+            // 判斷是否原本是「歸還」狀態
+            const wasReturned = p.borrow_unit === '歸還';
+            
             if (s === '機櫃' || s === '中班') { 
-                delete p.signature; delete p.return_user; delete p._isReturning; delete p.borrower; delete p.extension; delete p.charger; delete p.lender; 
-                // 【關鍵修正 2】：只有明確點選「機櫃」或「中班」，才算是一次真正的盤點動作
+                delete p.signature; delete p._isReturning; delete p.borrower; delete p.extension; delete p.charger; delete p.lender; 
+                // 只有明確點選「機櫃」或「中班」，才算是一次真正的盤點動作
                 p._isInventoried = true; 
             } else {
                 delete p._isInventoried;
@@ -853,7 +856,11 @@
                 p.borrow_unit = s; 
             }
             
-            if (p.borrow_unit !== '歸還') delete p.return_user;
+            // 【關鍵修正】：如果不是從「歸還」切換成其他狀態，或者切換成「出借」，則清除 return_user
+            // 這樣歸還後再點「機櫃」，依然能保留原本的歸還人姓名
+            if (p.borrow_unit !== '歸還' && !(wasReturned && (s === '機櫃' || s === '中班'))) {
+                delete p.return_user;
+            }
             renderInv();
         }
         
@@ -873,7 +880,7 @@
         async function openTempModal() {
             if(!validate()) return;
             
-            // 【關鍵修正 3】：將過濾條件改為更精準的三種：有實質改變狀態 / 明確點擊盤點 / 偷改過文字細節
+            // 將過濾條件改為更精準的三種：有實質改變狀態 / 明確點擊盤點 / 偷改過文字細節
             const localChanges = rawData.filter(p => p.borrow_unit !== cloudInitialMap[p.id] || p._isInventoried || p._dataChanged);
             if(localChanges.length === 0) return showMessage('提示', "資料與雲端一致，無需暫存。");
 
@@ -883,11 +890,19 @@
                 const API = getApiUrl(); const res = await fetch(`${API}?t=${Date.now()}`);
                 if(!res.ok) throw new Error("Network error");
                 const data = await res.json(); let freshData = Array.isArray(data) ? data : (data.inventory || []);
-                const freshMap = {}; freshData.forEach(p => freshMap[p.id] = (p.borrow_unit || getDefaultStatus(p.id)).trim());
+                
+                // 在檢查衝突時，也要把雲端傳來的「未盤點」同步轉換為 C/O 系列的預設狀態「機櫃」，才不會發生誤判
+                const freshMap = {}; 
+                freshData.forEach(p => {
+                    let fUnit = (p.borrow_unit || '').trim();
+                    if (fUnit === '' || fUnit === '未盤點') fUnit = getDefaultStatus(p.id);
+                    freshMap[p.id] = fUnit;
+                });
+                
                 const conflicts = [];
                 localChanges.forEach(change => {
                     const freshStatus = freshMap[change.id]; const initialStatus = cloudInitialMap[change.id];
-                    // 【關鍵新增】：增加 freshStatus !== '歸還'。只要雲端的狀態是歸還，就允許直接被新狀態覆蓋，不視為衝突。
+                    // 增加 freshStatus !== '歸還'。只要雲端的狀態是歸還，就允許直接被新狀態覆蓋，不視為衝突。
                     if (freshStatus !== initialStatus && freshStatus !== getDefaultStatus(change.id) && freshStatus !== '歸還') conflicts.push(`• ${change.id} (已被變更為: ${freshStatus})`);
                 });
                 loadingOverlay.style.display = 'none';
