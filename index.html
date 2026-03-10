@@ -175,6 +175,18 @@
         </header>
 
         <main class="max-w-6xl mx-auto p-4">
+            <!-- 新增的完成提示橫幅 -->
+            <div id="completion-banner" class="hidden mb-6 bg-emerald-50 border border-emerald-200 rounded-2xl p-4 items-center gap-4 shadow-sm relative overflow-hidden">
+                <div class="absolute right-0 top-0 w-24 h-24 bg-emerald-100 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
+                <div class="p-3 bg-emerald-100 text-emerald-600 rounded-full shrink-0 z-10">
+                    <i class="fas fa-check-double text-2xl"></i>
+                </div>
+                <div class="z-10">
+                    <h3 class="font-black text-emerald-800 text-lg">今日已盤點完成 🎉</h3>
+                    <p class="text-xs font-bold text-emerald-600 mt-1" id="completion-time-text">雲端已成功建立今日盤點表</p>
+                </div>
+            </div>
+
             <div class="bg-white p-5 rounded-2xl shadow-sm border mb-6">
                 <div class="flex flex-col md:flex-row md:items-end gap-6 mb-4">
                     <div>
@@ -528,22 +540,16 @@
                 
                 cloudInitialMap = {};
                 rawData.forEach(p => {
-                    delete p._isInventoried; // 取代掉會造成誤判的 _modified
+                    delete p._isInventoried; 
                     delete p._dataChanged; 
                     
-                    // 【關鍵修正】：加上 p.borrow_unit.trim() === '未盤點'
-                    // 因為後端每天會重置為「未盤點」，前端接收到後，只要發現是 C 或 O 系列，就強制把它蓋成「機櫃」
                     if (!p.borrow_unit || p.borrow_unit.trim() === '' || p.borrow_unit.trim() === '未盤點') {
                         p.borrow_unit = getDefaultStatus(p.id);
                     }
                     
-                    // 歸還後自動退回預設狀態 (C/O自動回機櫃)
                     if (p.borrow_unit === '歸還') { 
                         p.borrow_unit = getDefaultStatus(p.id); 
                         delete p.return_user; 
-                        
-                        // 既然是「歸還自動變成機櫃的」，這不算是一次「盤點確認動作」
-                        // 所以必須拔除這個人的名字，避免他無辜賺到盤點業績
                         delete p.registrar; 
                     }
                     cloudInitialMap[p.id] = p.borrow_unit.trim();
@@ -837,27 +843,22 @@
             const p = rawData.find(x => x.id === id);
             const defStatus = getDefaultStatus(id);
             
-            // 判斷是否原本是「歸還」狀態
             const wasReturned = p.borrow_unit === '歸還';
             
             if (s === '機櫃' || s === '中班') { 
                 delete p.signature; delete p._isReturning; delete p.borrower; delete p.extension; delete p.charger; delete p.lender; 
-                // 只有明確點選「機櫃」或「中班」，才算是一次真正的盤點動作
                 p._isInventoried = true; 
             } else {
                 delete p._isInventoried;
             }
             
-            // 取消選取時，退回該系列專屬的預設狀態
             if (p.borrow_unit === s || (s === '出借' && !["未盤點", "機櫃", "中班", "歸還"].includes(p.borrow_unit))) {
                 p.borrow_unit = defStatus; 
-                delete p._isInventoried; // 取消操作，拔除盤點業績
+                delete p._isInventoried; 
             } else {
                 p.borrow_unit = s; 
             }
             
-            // 【關鍵修正】：如果不是從「歸還」切換成其他狀態，或者切換成「出借」，則清除 return_user
-            // 這樣歸還後再點「機櫃」，依然能保留原本的歸還人姓名
             if (p.borrow_unit !== '歸還' && !(wasReturned && (s === '機櫃' || s === '中班'))) {
                 delete p.return_user;
             }
@@ -880,7 +881,6 @@
         async function openTempModal() {
             if(!validate()) return;
             
-            // 將過濾條件改為更精準的三種：有實質改變狀態 / 明確點擊盤點 / 偷改過文字細節
             const localChanges = rawData.filter(p => p.borrow_unit !== cloudInitialMap[p.id] || p._isInventoried || p._dataChanged);
             if(localChanges.length === 0) return showMessage('提示', "資料與雲端一致，無需暫存。");
 
@@ -891,7 +891,6 @@
                 if(!res.ok) throw new Error("Network error");
                 const data = await res.json(); let freshData = Array.isArray(data) ? data : (data.inventory || []);
                 
-                // 在檢查衝突時，也要把雲端傳來的「未盤點」同步轉換為 C/O 系列的預設狀態「機櫃」，才不會發生誤判
                 const freshMap = {}; 
                 freshData.forEach(p => {
                     let fUnit = (p.borrow_unit || '').trim();
@@ -902,7 +901,6 @@
                 const conflicts = [];
                 localChanges.forEach(change => {
                     const freshStatus = freshMap[change.id]; const initialStatus = cloudInitialMap[change.id];
-                    // 增加 freshStatus !== '歸還'。只要雲端的狀態是歸還，就允許直接被新狀態覆蓋，不視為衝突。
                     if (freshStatus !== initialStatus && freshStatus !== getDefaultStatus(change.id) && freshStatus !== '歸還') conflicts.push(`• ${change.id} (已被變更為: ${freshStatus})`);
                 });
                 loadingOverlay.style.display = 'none';
@@ -934,7 +932,7 @@
                     const p = rawData.find(x => x.id === item.id); 
                     if(p) { 
                         p.registrar = name; 
-                        delete p._isInventoried; // 儲存成功後清除追蹤標記
+                        delete p._isInventoried; 
                         delete p._dataChanged; 
                     } 
                 });
@@ -968,10 +966,12 @@
             try {
                 const API = getApiUrl();
                 const fetchPromise = fetch(API, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: "submit", registrar: name, inventory: inventory }) });
-                const timeoutPromise = new Promise(resolve => setTimeout(resolve, 10000));
+                
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("請求超時，請檢查網路連線")), 15000));
                 await Promise.race([fetchPromise, timeoutPromise]);
-                loadingOverlay.style.display = 'none'; showMessage("上傳成功", "🎉 請求已發送！\n系統將自動重整。", () => location.reload());
-            } catch(e) { loadingOverlay.style.display = 'none'; showMessage("上傳失敗", "提交過程發生錯誤：" + e, null, true); btn.disabled = false; }
+                
+                loadingOverlay.style.display = 'none'; showMessage("上傳成功", "🎉 請求已發送！\n系統將自動重整以讀取最新雲端狀態。", () => location.reload());
+            } catch(e) { loadingOverlay.style.display = 'none'; showMessage("上傳失敗", "提交過程發生錯誤：" + e.message, null, true); btn.disabled = false; }
         }
         function showMessage(title, message, callback = null, isError = false) {
             const modal = document.getElementById('system-modal');
@@ -1102,6 +1102,71 @@
             setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); overviewState.currentEditId = null; }, 150);
         }
         function clearAndSaveTest() { document.getElementById('modal-nickname').value = ''; saveTestStatus(); }
+
+        // 【大改版】精準查驗雲端分頁是否存在 (破解 Google API 自動降級問題)
+        async function checkInventoryCompletion() {
+            const SHEET_ID = '1LsuBSpaKrnXN6GKM-6AFMbA9T286_TK3u9sQ9bzl2Pc';
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const m = today.getMonth() + 1;
+            const d = today.getDate();
+            const mm = m.toString().padStart(2, '0');
+            const dd = d.toString().padStart(2, '0');
+
+            const formats = [`${m}/${d}`, `${mm}/${dd}`, `${m}月${d}日`, `${yyyy}-${mm}-${dd}`];
+
+            let isCompleted = false;
+            let foundFormat = '';
+
+            try {
+                // 1. 取得預設分頁(第一頁)的簽章 (Signature)
+                // Google API 的雷點：當查詢的分頁不存在時，它會自動拿第一頁的資料塞給你。
+                // 因此我們先把第一頁的專屬「簽章」抓下來，當作對照組。
+                const defaultUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&tq=${encodeURIComponent('SELECT A LIMIT 1')}&t=${Date.now()}`;
+                const defaultRes = await fetch(defaultUrl, { cache: 'no-store' });
+                const defaultText = await defaultRes.text();
+                const defaultJson = JSON.parse(defaultText.substring(defaultText.indexOf('{'), defaultText.lastIndexOf('}') + 1));
+                const defaultSig = defaultJson.sig;
+
+                // 2. 逐一檢查各種可能的今日日期格式
+                for (const format of formats) {
+                    if (isCompleted) break;
+                    try {
+                        // 加上 t=Date.now() 徹底破除瀏覽器快取
+                        const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(format)}&tq=${encodeURIComponent('SELECT A LIMIT 1')}&t=${Date.now()}`;
+                        const res = await fetch(url, { cache: 'no-store' });
+                        const text = await res.text();
+                        const start = text.indexOf('{');
+                        const end = text.lastIndexOf('}');
+                        
+                        if (start !== -1 && end !== -1) {
+                            const json = JSON.parse(text.substring(start, end + 1));
+                            // 如果成功回傳，而且簽章(sig)跟第一頁的對照組【不同】，才代表這個分頁是真的存在！
+                            if (json.status === 'ok' && json.sig !== defaultSig) {
+                                isCompleted = true;
+                                foundFormat = format;
+                            }
+                        }
+                    } catch (e) {
+                        // 略過錯誤
+                    }
+                }
+            } catch (e) {
+                console.warn('查驗盤點狀態失敗', e);
+            }
+
+            const banner = document.getElementById('completion-banner');
+            if (banner) {
+                if (isCompleted) {
+                    banner.classList.remove('hidden');
+                    banner.classList.add('flex');
+                    document.getElementById('completion-time-text').innerText = `雲端已成功建立今日盤點表 (${foundFormat})`;
+                } else {
+                    banner.classList.add('hidden');
+                    banner.classList.remove('flex');
+                }
+            }
+        }
 
         function showToast(message, type = 'info') {
             const container = document.getElementById('toast-container'); const toast = document.createElement('div');
@@ -1260,6 +1325,7 @@
             fetchData();
             initCanvas();
             fetchEmployeeData();
+            checkInventoryCompletion(); // 進入頁面時檢查是否顯示完成橫幅
 
             // App 2 初始化
             document.getElementById('over-search-input').addEventListener('input', (e) => {
