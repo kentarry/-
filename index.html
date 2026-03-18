@@ -217,10 +217,10 @@
 
             <div class="flex overflow-x-auto border-b mb-4 text-sm no-scrollbar bg-white sticky top-[124px] z-40 rounded-t-xl">
                 <button onclick="switchInvTab('all', this)" class="tab-btn px-6 py-4 tab-active">全部</button>
-                <button onclick="switchInvTab('A', this)" class="tab-btn px-6 py-4 text-gray-500">A 系列</button>
                 <button onclick="switchInvTab('I', this)" class="tab-btn px-6 py-4 text-gray-500">I 系列</button>
-                <button onclick="switchInvTab('O', this)" class="tab-btn px-6 py-4 text-gray-500">O 系列</button>
+                <button onclick="switchInvTab('A', this)" class="tab-btn px-6 py-4 text-gray-500">A 系列</button>
                 <button onclick="switchInvTab('C', this)" class="tab-btn px-6 py-4 text-gray-500">C 系列</button>
+                <button onclick="switchInvTab('O', this)" class="tab-btn px-6 py-4 text-gray-500">O 系列</button>
                 <button onclick="switchInvTab('un', this)" class="tab-btn px-6 py-4 text-red-500 font-bold">⚠️ 未完成</button>
             </div>
 
@@ -1250,7 +1250,7 @@
             if (filteredData.length === 0) { container.innerHTML = `<div class="py-12 text-center text-slate-500 italic bg-white rounded-xl border border-slate-200 shadow-sm">找不到符合條件的裝置資料</div>`; return; }
 
          // 定義你想要的專屬排序順序
-            const customOrder = ['A 系列', 'I 系列', 'O 系列', 'C 系列'];
+            const customOrder = ['I 系列', 'A 系列', 'C 系列', 'O 系列'];
 
             Object.keys(groupedData).sort((a, b) => {
                 const indexA = customOrder.indexOf(a);
