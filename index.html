@@ -1249,7 +1249,22 @@
             const container = document.getElementById('card-container'); container.innerHTML = '';
             if (filteredData.length === 0) { container.innerHTML = `<div class="py-12 text-center text-slate-500 italic bg-white rounded-xl border border-slate-200 shadow-sm">找不到符合條件的裝置資料</div>`; return; }
 
-            Object.keys(groupedData).sort().forEach(groupName => {
+         // 定義你想要的專屬排序順序
+            const customOrder = ['A 系列', 'I 系列', 'O 系列', 'C 系列'];
+
+            Object.keys(groupedData).sort((a, b) => {
+                const indexA = customOrder.indexOf(a);
+                const indexB = customOrder.indexOf(b);
+
+                // 如果兩個分類都有在 customOrder 裡面，就依照設定的順序排
+                if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                // 如果只有其中一個在裡面，有在裡面的優先排前面
+                if (indexA !== -1) return -1;
+                if (indexB !== -1) return 1;
+
+                // 沒被指定的分類（例如「其他」或「測試人員名稱」），維持預設的字母拼寫排序
+                return a.localeCompare(b);
+            }).forEach(groupName => {
                 const seriesData = groupedData[groupName]; const section = document.createElement('div');
                 section.className = 'bg-slate-50/50 rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm';
                 const indicatorColor = overviewState.filterType === 'testing' ? 'bg-sky-500' : 'bg-blue-500';
