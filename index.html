@@ -25,11 +25,12 @@
 </head>
 <body>
 
-    <div class="fixed top-0 inset-x-0 h-14 bg-gray-900 z-[10000] flex items-center justify-center gap-4 shadow-md">
-        <button onclick="switchMainTab('inventory')" id="main-tab-inv" class="px-6 py-2 rounded-full bg-blue-600 text-white font-bold transition-all shadow-lg">手機盤點系統</button>
-        <button onclick="switchMainTab('overview')" id="main-tab-over" class="px-6 py-2 rounded-full bg-gray-700 text-gray-300 font-bold transition-all hover:bg-gray-600">裝置狀態總覽</button>
+    <div class="fixed top-0 inset-x-0 h-14 bg-gray-900 z-[10000] flex items-center justify-center gap-2 sm:gap-4 shadow-md">
+        <button onclick="switchMainTab('inventory')" id="main-tab-inv" class="px-3 sm:px-6 py-2 text-sm sm:text-base rounded-full bg-blue-600 text-white font-bold transition-all shadow-lg whitespace-nowrap">手機盤點</button>
+        <button onclick="switchMainTab('overview')" id="main-tab-over" class="px-3 sm:px-6 py-2 text-sm sm:text-base rounded-full bg-gray-700 text-gray-300 font-bold transition-all hover:bg-gray-600 whitespace-nowrap">裝置總覽</button>
+        <a href="https://kentarry.github.io/Mobile-phone-rental/" target="_blank" class="px-3 sm:px-6 py-2 text-sm sm:text-base rounded-full bg-emerald-600 text-white font-bold transition-all hover:bg-emerald-500 shadow-lg flex items-center gap-1 sm:gap-2 whitespace-nowrap"><i class="fas fa-mobile-screen"></i>研發借用清單</a>
         
-        <a href="https://docs.google.com/document/d/11_PaC36J_IkBtCujeUQdoV6vuCALMZYvTN7DhtuuqFU/edit?usp=sharing" target="_blank" class="absolute right-4 flex items-center gap-1.5 text-gray-300 hover:text-white text-sm font-medium transition-colors" title="查看系統說明書">
+        <a href="https://docs.google.com/document/d/11_PaC36J_IkBtCujeUQdoV6vuCALMZYvTN7DhtuuqFU/edit?usp=sharing" target="_blank" class="absolute right-4 hidden md:flex items-center gap-1.5 text-gray-300 hover:text-white text-sm font-medium transition-colors" title="查看系統說明書">
             <i class="fas fa-book-open"></i>
             <span class="hidden sm:inline">系統說明書</span>
         </a>
@@ -787,10 +788,7 @@
                                         </div>
                                         <div class="flex-1 min-w-0">
                                             <label class="block text-[10px] text-gray-500 font-bold mb-0.5 truncate">出借人員</label>
-                                            <select oninput="updateDetail('${id}', 'lender', this.value)" class="detail-input min-w-0 w-full bg-white">
-                                                <option value="">-- 請選擇出借人 --</option>
-                                                ${overviewState.staffData.map(name => `<option value="${name}" ${(p.lender || '') === name ? 'selected' : ''}>${name}</option>`).join('')}
-                                            </select>
+                                            <input type="text" value="${p.lender || ''}" oninput="updateDetail('${id}', 'lender', this.value)" class="detail-input min-w-0 w-full">
                                         </div>
                                     </div>
                                     <div class="flex flex-wrap items-center text-xs mt-1">
@@ -1252,7 +1250,22 @@
             const container = document.getElementById('card-container'); container.innerHTML = '';
             if (filteredData.length === 0) { container.innerHTML = `<div class="py-12 text-center text-slate-500 italic bg-white rounded-xl border border-slate-200 shadow-sm">找不到符合條件的裝置資料</div>`; return; }
 
-            Object.keys(groupedData).sort().forEach(groupName => {
+         // 定義你想要的專屬排序順序
+            const customOrder = ['A 系列', 'I 系列', 'O 系列', 'C 系列'];
+
+            Object.keys(groupedData).sort((a, b) => {
+                const indexA = customOrder.indexOf(a);
+                const indexB = customOrder.indexOf(b);
+
+                // 如果兩個分類都有在 customOrder 裡面，就依照設定的順序排
+                if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                // 如果只有其中一個在裡面，有在裡面的優先排前面
+                if (indexA !== -1) return -1;
+                if (indexB !== -1) return 1;
+
+                // 沒被指定的分類（例如「其他」或「測試人員名稱」），維持預設的字母拼寫排序
+                return a.localeCompare(b);
+            }).forEach(groupName => {
                 const seriesData = groupedData[groupName]; const section = document.createElement('div');
                 section.className = 'bg-slate-50/50 rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm';
                 const indicatorColor = overviewState.filterType === 'testing' ? 'bg-sky-500' : 'bg-blue-500';
