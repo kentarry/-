@@ -726,7 +726,7 @@
             document.getElementById('clear-search').classList.add('hidden'); renderInv();
         }
         function checkMissingPeople() {
-            const TEAM_MEMBERS = [ "許昕慈", "簡伶珊", "許庭瑊", "彭毓雯", "王溶蓁", "秦嘉佑", "郭冠麟", "江冠錡", "李敏瑞", "呂孟軒", "穆道生", "林敏雄", "林榆昕", "洪全緯", "蔡曜宇", "王雯鈺", "周啟堂", "宋灝平" ];
+            const TEAM_MEMBERS = [ "許昕慈", "簡伶珊", "許庭瑊", "彭毓雯", "王溶蓁", "秦嘉佑", "郭冠麟", "江冠錡", "李敏瑞", "張歷承", "穆道生", "林敏雄", "林榆昕", "洪全緯", "蔡曜宇", "王雯鈺", "周啟堂", "宋灝平" ];
             const registeredUsers = new Set();
             rawData.forEach(p => { if (p.registrar && (p.borrow_unit === '機櫃' || p.borrow_unit === '中班')) registeredUsers.add(p.registrar); });
             const missingUsers = TEAM_MEMBERS.filter(name => !registeredUsers.has(name));
