@@ -72,6 +72,33 @@
             </div>
         </div>
 
+        <!-- ★ 新增：身上無手機登記視窗 -->
+        <div id="nophone-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[120]">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div class="bg-slate-700 p-4 text-white flex justify-between items-center">
+                    <h3 class="font-bold text-lg"><i class="fas fa-user-slash mr-2"></i>身上無手機登記</h3>
+                    <button onclick="closeNoPhoneModal()"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="p-6">
+                    <p class="text-xs text-gray-500 mb-3 leading-relaxed">
+                        登記後，本日「一鍵抓漏」將自動排除此人員；<br>正式上傳後，今日登記的無手機名單會一併清空。
+                    </p>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">選擇同仁 <span class="text-red-500">*</span></label>
+                    <select id="nophone-name" class="w-full p-3 border rounded-xl mb-5 outline-none focus:ring-2 focus:ring-slate-500">
+                        <option value="">-- 請選擇同仁 --</option>
+                    </select>
+
+                    <p class="text-[10px] text-gray-400 mb-2 font-bold">今日已登記「身上無手機」的同仁：</p>
+                    <div id="nophone-list" class="text-xs bg-gray-50 p-3 rounded-lg max-h-40 overflow-y-auto mb-6 border"></div>
+
+                    <div class="flex gap-3">
+                        <button onclick="closeNoPhoneModal()" class="flex-1 py-3 border rounded-xl hover:bg-gray-100 transition-colors">取消</button>
+                        <button onclick="confirmNoPhone()" class="flex-1 py-3 bg-slate-700 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all">確認</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="signature-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[150]">
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
                 <div class="bg-blue-600 p-3 text-white flex justify-between items-center">
@@ -138,7 +165,7 @@
                     <p class="text-sm text-gray-600 mb-4 leading-relaxed">
                         這將執行以下動作：<br>
                         1. 覆蓋雲端的「今日盤點資料」。<br>
-                        2. 清空所有的「暫存紀錄」。<br>
+                        2. 清空所有的「暫存紀錄」與「身上無手機名單」。<br>
                         3. 更新出借狀態與簽名。
                     </p>
                     
@@ -166,17 +193,30 @@
 
         <header class="bg-white shadow-sm sticky top-[56px] z-50 p-4">
             <div class="max-w-6xl mx-auto flex justify-between items-center">
-                <h1 class="font-bold text-xl text-gray-800 flex items-center"><i class="fas fa-mobile-alt mr-2 text-blue-600"></i>手機盤點 V3.11</h1>
+                <h1 class="font-bold text-xl text-gray-800 flex items-center"><i class="fas fa-mobile-alt mr-2 text-blue-600"></i>手機盤點 V3.12</h1>
                 
                 <div class="flex gap-2">
                     <button onclick="checkMissingPeople()" class="text-amber-600 text-sm font-bold hover:bg-amber-50 px-3 py-1 rounded-lg transition-all border border-amber-200 shadow-sm"><i class="fas fa-user-clock"></i> 一鍵抓漏</button>
+                    <button onclick="openNoPhoneModal()" class="text-slate-600 text-sm font-bold hover:bg-slate-50 px-3 py-1 rounded-lg transition-all border border-slate-300 shadow-sm"><i class="fas fa-user-slash"></i> 身上無手機</button>
                     <button onclick="fetchData()" class="text-blue-600 text-sm font-bold hover:bg-blue-50 px-3 py-1 rounded-lg transition-all border border-blue-200 shadow-sm"><i class="fas fa-sync-alt"></i> 同步最新</button>
                 </div>
             </div>
         </header>
 
         <main class="max-w-6xl mx-auto p-4">
-            <!-- 新增的完成提示橫幅 -->
+            <!-- ★ 新增：借用逾期提醒橫幅 (超過 7 天) -->
+            <div id="overdue-banner" class="hidden mb-6 bg-red-50 border border-red-200 rounded-2xl p-4 shadow-sm">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="p-2.5 bg-red-100 text-red-600 rounded-lg shrink-0"><i class="fas fa-clock text-lg"></i></div>
+                    <div>
+                        <h3 class="font-black text-red-800 text-base">借用逾期提醒（借出已超過 7 天）</h3>
+                        <p class="text-xs font-bold text-red-500 mt-0.5">共 <span id="overdue-count">0</span> 支手機借出已超過七天，請盡快追蹤歸還</p>
+                    </div>
+                </div>
+                <div id="overdue-list" class="space-y-2"></div>
+            </div>
+
+            <!-- 完成提示橫幅 -->
             <div id="completion-banner" class="hidden mb-6 bg-emerald-50 border border-emerald-200 rounded-2xl p-4 items-center gap-4 shadow-sm relative overflow-hidden">
                 <div class="absolute right-0 top-0 w-24 h-24 bg-emerald-100 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
                 <div class="p-3 bg-emerald-100 text-emerald-600 rounded-full shrink-0 z-10">
@@ -445,6 +485,11 @@
         /* ========================================================================== */
         const DEFAULT_API = "https://script.google.com/macros/s/AKfycbxVckmqcb0HYPzqiTUrmXS4_Zc0NDXhXTCik-oaLx5s1soPkuFDxu8UoVsfjiUVyDdG/exec";
         const DEFAULT_UNITS = [];
+
+        // ★ 品檢團隊名單 (提升為全域，供一鍵抓漏 & 身上無手機共用)
+        const TEAM_MEMBERS = [ "許昕慈", "簡伶珊", "許庭瑊", "彭毓雯", "王溶蓁", "秦嘉佑", "郭冠麟", "江冠錡", "李敏瑞", "張歷承", "穆道生", "林敏雄", "林榆昕", "洪全緯", "蔡曜宇", "王雯鈺", "周啟堂", "宋灝平" ];
+        // ★ 今日登記「身上無手機」的同仁 (由後端 doGet 回傳)
+        let noPhoneUsers = [];
         
         let rawData = [];
         let availableUnits = []; 
@@ -532,11 +577,12 @@
                 rawData.forEach(p => { if(p.registrar) localRegistrars[p.id] = p.registrar; });
 
                 if (Array.isArray(data)) {
-                    rawData = data; availableUnits = DEFAULT_UNITS;
+                    rawData = data; availableUnits = DEFAULT_UNITS; noPhoneUsers = [];
                 } else {
                     rawData = data.inventory || [];
                     const cloudUnits = data.units || [];
                     availableUnits = Array.from(new Set([...DEFAULT_UNITS, ...cloudUnits]));
+                    noPhoneUsers = data.no_phone_users || [];   // ★ 讀取今日無手機名單
                 }
                 
                 cloudInitialMap = {};
@@ -725,13 +771,101 @@
             document.getElementById('inv-search-input').value = ''; searchQueryInv = '';
             document.getElementById('clear-search').classList.add('hidden'); renderInv();
         }
+
         function checkMissingPeople() {
-            const TEAM_MEMBERS = [ "許昕慈", "簡伶珊", "許庭瑊", "彭毓雯", "王溶蓁", "秦嘉佑", "郭冠麟", "江冠錡", "李敏瑞", "張歷承", "穆道生", "林敏雄", "林榆昕", "洪全緯", "蔡曜宇", "王雯鈺", "周啟堂", "宋灝平" ];
             const registeredUsers = new Set();
             rawData.forEach(p => { if (p.registrar && (p.borrow_unit === '機櫃' || p.borrow_unit === '中班')) registeredUsers.add(p.registrar); });
+            // ★ 排除今日已登記「身上無手機」的同仁
+            noPhoneUsers.forEach(name => registeredUsers.add(name));
             const missingUsers = TEAM_MEMBERS.filter(name => !registeredUsers.has(name));
-            if (missingUsers.length === 0) showMessage("抓漏結果", "🎉 太棒了！所有組員都已經在暫存區登錄過了！");
-            else { const msg = `⚠️ 以下人員尚未進行盤點暫存：\n\n${missingUsers.map(u => `• ${u}`).join('\n')}\n\n請盡快提醒他們開啟系統完成盤點！`; showMessage("尚未登錄人員名單", msg, null, true); }
+            if (missingUsers.length === 0) showMessage("抓漏結果", "🎉 太棒了！所有組員都已經完成登錄（含身上無手機）！");
+            else {
+                const npNote = noPhoneUsers.length > 0 ? `\n（已自動排除身上無手機：${noPhoneUsers.join('、')}）` : '';
+                const msg = `⚠️ 以下人員尚未進行盤點暫存：\n\n${missingUsers.map(u => `• ${u}`).join('\n')}${npNote}\n\n請盡快提醒他們開啟系統完成盤點！`;
+                showMessage("尚未登錄人員名單", msg, null, true);
+            }
+        }
+
+        /* ========================================================================== */
+        /* ★ 新增：身上無手機 登記邏輯                        */
+        /* ========================================================================== */
+        function openNoPhoneModal() {
+            renderNoPhoneList();
+            document.getElementById('nophone-modal').classList.remove('hidden');
+        }
+        function closeNoPhoneModal() {
+            document.getElementById('nophone-modal').classList.add('hidden');
+        }
+        function renderNoPhoneList() {
+            const select = document.getElementById('nophone-name');
+            const listEl = document.getElementById('nophone-list');
+            const prevVal = select.value;
+            // 下拉選單：排除今日已登記的同仁
+            select.innerHTML = '<option value="">-- 請選擇同仁 --</option>';
+            TEAM_MEMBERS.forEach(n => {
+                if (!noPhoneUsers.includes(n)) {
+                    const o = document.createElement('option'); o.value = n; o.textContent = n; select.appendChild(o);
+                }
+            });
+            if (Array.from(select.options).some(o => o.value === prevVal)) select.value = prevVal;
+
+            // 已登記清單
+            if (noPhoneUsers.length === 0) {
+                listEl.innerHTML = '<p class="text-gray-400 text-center py-2">今日尚無登記無手機的同仁</p>';
+            } else {
+                listEl.innerHTML = noPhoneUsers.map(n => `
+                    <div class="flex justify-between items-center py-1.5 px-2 bg-white rounded mb-1 border">
+                        <span class="text-sm font-bold text-gray-700"><i class="fas fa-user-slash text-slate-400 mr-1.5"></i>${n}</span>
+                        <button onclick="removeNoPhone('${n}')" class="text-red-500 text-xs hover:bg-red-50 px-2 py-0.5 rounded transition-colors"><i class="fas fa-times mr-0.5"></i>移除</button>
+                    </div>`).join('');
+            }
+        }
+        function confirmNoPhone() {
+            const name = document.getElementById('nophone-name').value;
+            if (!name) return showMessage("提醒", "請先選擇同仁姓名！", null, true);
+            // 二次確認：點確認送出、點否返回無手機視窗
+            showConfirm("身上無手機確認", `確定要登記「${name}」今日「身上無手機」嗎？\n\n登記後，本日一鍵抓漏將自動排除此人員。`,
+                () => submitNoPhone(name),   // 點「確認」→ 送出
+                null                          // 點「否」→ 返回無手機視窗 (不做事，視窗仍開著)
+            );
+        }
+        async function submitNoPhone(name) {
+            document.getElementById('inv-loading-overlay').style.display = 'flex';
+            document.getElementById('inv-loading-text').innerText = '登記中...';
+            try {
+                const API = getApiUrl();
+                const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'no_phone', name: name }) });
+                let ok = true;
+                try { const r = await res.json(); ok = (r.success !== false); } catch (e) { ok = true; /* 回應無法解析時視為送出成功 */ }
+                document.getElementById('inv-loading-overlay').style.display = 'none';
+                if (ok) {
+                    if (!noPhoneUsers.includes(name)) noPhoneUsers.push(name);
+                    closeNoPhoneModal();
+                    showMessage("登記成功", `已登記「${name}」今日身上無手機。\n一鍵抓漏將自動排除此人員。`);
+                } else {
+                    showMessage("登記失敗", "伺服器回報寫入失敗，請稍後再試。", null, true);
+                }
+            } catch (e) {
+                document.getElementById('inv-loading-overlay').style.display = 'none';
+                showMessage("登記失敗", "無法連線至伺服器：" + e.message, null, true);
+            }
+        }
+        function removeNoPhone(name) {
+            showConfirm("移除登記", `確定要移除「${name}」的無手機登記嗎？`, async () => {
+                document.getElementById('inv-loading-overlay').style.display = 'flex';
+                document.getElementById('inv-loading-text').innerText = '移除中...';
+                try {
+                    const API = getApiUrl();
+                    const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'remove_no_phone', name: name }) });
+                    try { await res.json(); } catch (e) { /* ignore */ }
+                    noPhoneUsers = noPhoneUsers.filter(n => n !== name);
+                } catch (e) {
+                    console.warn('移除失敗', e);
+                    noPhoneUsers = noPhoneUsers.filter(n => n !== name);
+                }
+                document.getElementById('inv-loading-overlay').style.display = 'none';
+                renderNoPhoneList();
+            }, null);
         }
 
         function renderInv() {
@@ -838,6 +972,66 @@
                 };
                 missingContainer.appendChild(span);
             });
+
+            renderOverdueBanner();   // ★ 每次重繪時更新逾期提醒
+        }
+
+        /* ========================================================================== */
+        /* ★ 新增：借用逾期 (超過 7 天) 提醒                   */
+        /* ========================================================================== */
+        function parseLoanDate(str) {
+            if (!str) return null;
+            str = str.toString().trim();
+            // yyyy/MM/dd、yyyy-MM-dd、yyyy年MM月dd日
+            let m = str.match(/(\d{4})[\/\-年.](\d{1,2})[\/\-月.](\d{1,2})/);
+            if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+            // M/d 或 M月d日 (視為今年)
+            m = str.match(/^(\d{1,2})[\/\-月.](\d{1,2})/);
+            if (m) return new Date(new Date().getFullYear(), +m[1] - 1, +m[2]);
+            const d = new Date(str);
+            return isNaN(d.getTime()) ? null : d;
+        }
+
+        function renderOverdueBanner() {
+            const banner = document.getElementById('overdue-banner');
+            const listEl = document.getElementById('overdue-list');
+            if (!banner) return;
+
+            const now = new Date(); now.setHours(0, 0, 0, 0);
+            const neutral = ['未盤點', '機櫃', '中班', '歸還'];
+            const overdue = [];
+
+            rawData.forEach(p => {
+                const unit = (p.borrow_unit || '').trim();
+                if (unit === '' || neutral.includes(unit)) return;   // 非出借中，略過
+                const ld = parseLoanDate(p.loan_date);
+                if (!ld) return;
+                ld.setHours(0, 0, 0, 0);
+                const days = Math.floor((now - ld) / 86400000);
+                if (days > 7) {
+                    overdue.push({
+                        id: p.id,
+                        unit: unit,
+                        borrower: (p.borrower && p.borrower.trim()) ? p.borrower.trim() : '—',
+                        extension: (p.extension && p.extension.trim()) ? p.extension.trim() : '—',
+                        days: days
+                    });
+                }
+            });
+
+            if (overdue.length === 0) { banner.classList.add('hidden'); return; }
+            overdue.sort((a, b) => b.days - a.days);
+
+            banner.classList.remove('hidden');
+            document.getElementById('overdue-count').innerText = overdue.length;
+            listEl.innerHTML = overdue.map(o => `
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm bg-white/80 rounded-lg px-3 py-2 border border-red-200">
+                    <span class="font-mono font-black text-red-700 text-base">${o.id}</span>
+                    <span class="text-gray-700"><i class="fas fa-building text-gray-400 mr-1"></i>${o.unit}</span>
+                    <span class="text-gray-700"><i class="fas fa-user text-gray-400 mr-1"></i>${o.borrower}</span>
+                    <span class="text-gray-700"><i class="fas fa-phone text-gray-400 mr-1"></i>分機 ${o.extension}</span>
+                    <span class="ml-auto text-xs font-bold text-white bg-red-500 px-2 py-0.5 rounded-full whitespace-nowrap">已借出 ${o.days} 天</span>
+                </div>`).join('');
         }
 
         function setStatus(id, s) {
@@ -971,6 +1165,7 @@
                 const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("請求超時，請檢查網路連線")), 15000));
                 await Promise.race([fetchPromise, timeoutPromise]);
                 
+                noPhoneUsers = [];   // ★ 正式上傳後，前端也同步清空無手機名單 (後端也會清空)
                 loadingOverlay.style.display = 'none'; showMessage("上傳成功", "🎉 請求已發送！\n系統將自動重整以讀取最新雲端狀態。", () => location.reload());
             } catch(e) { loadingOverlay.style.display = 'none'; showMessage("上傳失敗", "提交過程發生錯誤：" + e.message, null, true); btn.disabled = false; }
         }
@@ -980,6 +1175,18 @@
             document.getElementById('modal-message').innerText = message;
             document.getElementById('modal-actions').innerHTML = `<button id="modal-ok-btn" class="flex-1 py-2 rounded-lg text-white font-bold shadow bg-blue-600 hover:bg-blue-700">確定</button>`;
             document.getElementById('modal-ok-btn').onclick = () => { modal.classList.add('hidden'); if(callback) callback(); };
+            modal.classList.remove('hidden');
+        }
+        // ★ 新增：是/否 二次確認視窗
+        function showConfirm(title, message, onYes, onNo) {
+            const modal = document.getElementById('system-modal');
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            document.getElementById('modal-actions').innerHTML = `
+                <button id="modal-no-btn" class="flex-1 py-2 rounded-lg border font-bold text-gray-600 hover:bg-gray-100">否</button>
+                <button id="modal-yes-btn" class="flex-1 py-2 rounded-lg text-white font-bold shadow bg-green-600 hover:bg-green-700">確認</button>`;
+            document.getElementById('modal-no-btn').onclick = () => { modal.classList.add('hidden'); if (onNo) onNo(); };
+            document.getElementById('modal-yes-btn').onclick = () => { modal.classList.add('hidden'); if (onYes) onYes(); };
             modal.classList.remove('hidden');
         }
 
@@ -1120,20 +1327,15 @@
             let foundFormat = '';
 
             try {
-                // 1. 取得預設分頁(第一頁)的簽章 (Signature)
-                // Google API 的雷點：當查詢的分頁不存在時，它會自動拿第一頁的資料塞給你。
-                // 因此我們先把第一頁的專屬「簽章」抓下來，當作對照組。
                 const defaultUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&tq=${encodeURIComponent('SELECT A LIMIT 1')}&t=${Date.now()}`;
                 const defaultRes = await fetch(defaultUrl, { cache: 'no-store' });
                 const defaultText = await defaultRes.text();
                 const defaultJson = JSON.parse(defaultText.substring(defaultText.indexOf('{'), defaultText.lastIndexOf('}') + 1));
                 const defaultSig = defaultJson.sig;
 
-                // 2. 逐一檢查各種可能的今日日期格式
                 for (const format of formats) {
                     if (isCompleted) break;
                     try {
-                        // 加上 t=Date.now() 徹底破除瀏覽器快取
                         const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(format)}&tq=${encodeURIComponent('SELECT A LIMIT 1')}&t=${Date.now()}`;
                         const res = await fetch(url, { cache: 'no-store' });
                         const text = await res.text();
@@ -1142,7 +1344,6 @@
                         
                         if (start !== -1 && end !== -1) {
                             const json = JSON.parse(text.substring(start, end + 1));
-                            // 如果成功回傳，而且簽章(sig)跟第一頁的對照組【不同】，才代表這個分頁是真的存在！
                             if (json.status === 'ok' && json.sig !== defaultSig) {
                                 isCompleted = true;
                                 foundFormat = format;
@@ -1257,13 +1458,10 @@
                 const indexA = customOrder.indexOf(a);
                 const indexB = customOrder.indexOf(b);
 
-                // 如果兩個分類都有在 customOrder 裡面，就依照設定的順序排
                 if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-                // 如果只有其中一個在裡面，有在裡面的優先排前面
                 if (indexA !== -1) return -1;
                 if (indexB !== -1) return 1;
 
-                // 沒被指定的分類（例如「其他」或「測試人員名稱」），維持預設的字母拼寫排序
                 return a.localeCompare(b);
             }).forEach(groupName => {
                 const seriesData = groupedData[groupName]; const section = document.createElement('div');
