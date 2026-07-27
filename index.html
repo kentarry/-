@@ -164,9 +164,10 @@
                 <div class="p-6">
                     <p class="text-sm text-gray-600 mb-4 leading-relaxed">
                         這將執行以下動作：<br>
-                        1. 覆蓋雲端的「今日盤點資料」。<br>
-                        2. 清空所有的「暫存紀錄」與「身上無手機名單」。<br>
-                        3. 更新出借狀態與簽名。
+                        1. 覆蓋雲端的「今日盤點資料」(上傳人員=主責人員)。<br>
+                        2. 將各盤點人的暫存紀錄，備份至「今日日期-盤點明細」頁籤。<br>
+                        3. 清空所有的「暫存紀錄」與「身上無手機名單」。<br>
+                        4. 更新出借狀態與簽名。
                     </p>
                     
                     <div class="mb-5 bg-blue-50 border border-blue-100 rounded-lg p-3 flex justify-center">
@@ -193,7 +194,7 @@
 
         <header class="bg-white shadow-sm sticky top-[56px] z-50 p-4">
             <div class="max-w-6xl mx-auto flex justify-between items-center">
-                <h1 class="font-bold text-xl text-gray-800 flex items-center"><i class="fas fa-mobile-alt mr-2 text-blue-600"></i>手機盤點 V3.12</h1>
+                <h1 class="font-bold text-xl text-gray-800 flex items-center"><i class="fas fa-mobile-alt mr-2 text-blue-600"></i>手機盤點 V3.13</h1>
                 
                 <div class="flex gap-2">
                     <button onclick="checkMissingPeople()" class="text-amber-600 text-sm font-bold hover:bg-amber-50 px-3 py-1 rounded-lg transition-all border border-amber-200 shadow-sm"><i class="fas fa-user-clock"></i> 一鍵抓漏</button>
@@ -1166,7 +1167,7 @@
                 await Promise.race([fetchPromise, timeoutPromise]);
                 
                 noPhoneUsers = [];   // ★ 正式上傳後，前端也同步清空無手機名單 (後端也會清空)
-                loadingOverlay.style.display = 'none'; showMessage("上傳成功", "🎉 請求已發送！\n系統將自動重整以讀取最新雲端狀態。", () => location.reload());
+                loadingOverlay.style.display = 'none'; showMessage("上傳成功", "🎉 請求已發送！\n各盤點人的紀錄將備份至「盤點明細」頁籤。\n系統將自動重整以讀取最新雲端狀態。", () => location.reload());
             } catch(e) { loadingOverlay.style.display = 'none'; showMessage("上傳失敗", "提交過程發生錯誤：" + e.message, null, true); btn.disabled = false; }
         }
         function showMessage(title, message, callback = null, isError = false) {
