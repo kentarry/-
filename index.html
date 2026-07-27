@@ -144,6 +144,7 @@
                         <option value="周啟堂">周啟堂</option>
                         <option value="宋灝平">宋灝平</option>
                     </select>
+                    <p id="registrar-locked-hint" class="hidden text-[11px] font-bold text-emerald-600 -mt-2 mb-4"><i class="fas fa-lock mr-1"></i>已依個人識別碼自動帶入，無法選擇他人</p>
 
                     <p class="text-[10px] text-gray-400 mb-2">本次變更預覽：</p>
                     <div id="change-preview" class="text-xs bg-gray-50 p-3 rounded-lg max-h-40 overflow-y-auto mb-6 border font-mono"></div>
@@ -183,7 +184,8 @@
                         <option value="阿布">阿布</option><option value="嘉佑">嘉佑</option><option value="大軍">大軍</option><option value="冠錡">冠錡</option>
                         <option value="敏瑞">敏瑞</option><option value="歷承">歷承</option><option value="阿穆">阿穆</option><option value="小雄">小雄</option>
                     </select>
-                    
+                    <p id="mainuser-locked-hint" class="hidden text-[11px] font-bold text-emerald-600 -mt-4 mb-6"><i class="fas fa-lock mr-1"></i>已依個人識別碼自動帶入，無法選擇他人</p>
+
                     <div class="flex gap-3">
                         <button onclick="closeInvModal('submit-modal')" class="flex-1 py-3 border rounded-xl hover:bg-gray-100 transition-colors">取消</button>
                         <button onclick="confirmSubmitFinal()" class="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all">確定提交</button>
@@ -195,7 +197,7 @@
         <header class="bg-white shadow-sm sticky top-[56px] z-50 p-4">
             <div class="max-w-6xl mx-auto flex justify-between items-center">
                 <div>
-                    <h1 class="font-bold text-xl text-gray-800 flex items-center"><i class="fas fa-mobile-alt mr-2 text-blue-600"></i>手機盤點 V3.14</h1>
+                    <h1 class="font-bold text-xl text-gray-800 flex items-center"><i class="fas fa-mobile-alt mr-2 text-blue-600"></i>手機盤點 V3.15</h1>
                     <p id="identity-badge" class="hidden text-xs mt-1"></p>
                 </div>
                 
@@ -787,16 +789,16 @@
             document.getElementById('clear-search').classList.add('hidden'); renderInv();
         }
 
-        // ★ 新增：頁首顯示「目前操作人」識別狀態
+        // ★ 新增：頁首顯示「目前操作人」識別狀態 (做成明顯的膠囊標籤)
         function renderIdentityBadge() {
             const el = document.getElementById('identity-badge');
             if (!el) return;
             if (currentUser) {
-                el.className = 'text-xs mt-1 font-bold text-emerald-600';
-                el.innerHTML = `<i class="fas fa-user-check mr-1"></i>目前操作人：${currentUser.name}`;
+                el.className = 'inline-flex items-center gap-1.5 text-xs mt-1.5 font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2.5 py-1 rounded-full';
+                el.innerHTML = `<i class="fas fa-user-check"></i>目前操作人：${currentUser.name}`;
             } else if (identityRequired) {
-                el.className = 'text-xs mt-1 font-bold text-red-500';
-                el.innerHTML = `<i class="fas fa-user-lock mr-1"></i>未識別身分，請改用「個人專屬連結」開啟系統`;
+                el.className = 'inline-flex items-center gap-1.5 text-xs mt-1.5 font-bold text-red-600 bg-red-50 border border-red-300 px-2.5 py-1 rounded-full';
+                el.innerHTML = `<i class="fas fa-user-lock"></i>未識別身分，請用「個人專屬連結」開啟`;
             } else {
                 el.className = 'hidden text-xs mt-1';
             }
@@ -1135,12 +1137,14 @@
                 document.getElementById('change-preview').innerHTML = localChanges.map(c => `<div class="py-1 border-b flex justify-between"><span>${c.id}</span><span>${cloudInitialMap[c.id]} -> <b class="text-amber-600">${c.borrow_unit}</b></span></div>`).join('');
                 // ★ 已識別身分時，登記人自動帶入並鎖定，無法選擇他人
                 const regSelect = document.getElementById('registrar-name');
+                const regHint = document.getElementById('registrar-locked-hint');
                 if (currentUser) {
                     if (!Array.from(regSelect.options).some(o => o.value === currentUser.name)) {
                         const opt = document.createElement('option'); opt.value = currentUser.name; opt.textContent = currentUser.name; regSelect.appendChild(opt);
                     }
                     regSelect.value = currentUser.name; regSelect.disabled = true;
-                } else { regSelect.disabled = false; }
+                    if (regHint) regHint.classList.remove('hidden');
+                } else { regSelect.disabled = false; if (regHint) regHint.classList.add('hidden'); }
                 document.getElementById('temp-modal').classList.remove('hidden');
             } catch(e) { loadingOverlay.style.display = 'none'; showMessage('檢查失敗', "無法連接雲端檢查衝突(網路錯誤)。" + e.message, null, true); }
         }
@@ -1191,13 +1195,15 @@
             }
             // ★ 已識別身分時，主責上傳人自動帶入 (暱稱) 並鎖定
             const mainSel = document.getElementById('submit-main-user');
+            const mainHint = document.getElementById('mainuser-locked-hint');
             if (currentUser) {
                 const nick = currentUser.nickname || currentUser.name;
                 if (!Array.from(mainSel.options).some(o => o.value === nick)) {
                     const opt = document.createElement('option'); opt.value = nick; opt.textContent = nick; mainSel.appendChild(opt);
                 }
                 mainSel.value = nick; mainSel.disabled = true;
-            } else { mainSel.disabled = false; }
+                if (mainHint) mainHint.classList.remove('hidden');
+            } else { mainSel.disabled = false; if (mainHint) mainHint.classList.add('hidden'); }
             document.getElementById('submit-modal').classList.remove('hidden');
         }
         function confirmSubmitFinal() {
